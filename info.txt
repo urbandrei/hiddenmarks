@@ -1,0 +1,72 @@
+Ouput:
+Draw
+---
+Bank blood shot
+Bank heavy handed
+Bank backfire
+Bank red handed
+Bank counterfeit
+Bank arson
+Bank snub
+Bank Upheaval
+Bank gold digger
+Bank bounty clubs
+Bank bounty hearts
+Bank bounty spades
+Bank bounty diamonds
+Bank bounty jokers
+Bank greed
+Bank blind spot
+Bank body swap
+Bank revenge
+Bank insomnia
+Bank tied up 
+Bank alter ego
+Bank trade off
+Bank unmasked
+---
+Play blood shot
+    target x4
+Play heavy handed
+    target x4
+Play backfire
+    target x4
+Play red handed
+    target x4
+Play counterfeit
+    target x4
+Play arson
+    target x4
+Play Upheaval
+    position x55
+Play gold digger
+    target x4
+Play bounty clubs
+    target x4
+Play bounty hearts
+    target x4
+Play bounty spades
+    target x4
+Play bounty diamonds
+    target x4
+Play bounty jokers
+    target x4
+Play greed
+Play body swap
+    target x4
+    target x4
+Play insomnia
+Play tied up 
+    target x4
+Play alter ego
+    target x4
+Play trade off
+    target x4
+    ?bank
+    ?hand
+    ?white
+    ?blue
+    ?red
+    swap x18
+Play unmasked
+    target x4
