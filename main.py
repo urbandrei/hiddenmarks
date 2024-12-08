@@ -1109,13 +1109,8 @@ class Game:
         
         fit = 0
         for i in range(10):
-            print(f"Game {i+1}")
             left = 4
-            last = 4
             while left > 1:
-                if last != left:
-                    print(f"Only {left} players left!")
-                    last = left
                 v = []
                 if self.currentPlayer == 0:
                     v = brain.pred(self.view())
@@ -1138,20 +1133,16 @@ class Game:
                         left += 1
             if self.players[0].alive:
                 fit += 1
-                print("Neural Net Won!")
-            else:
-                print("Neural Net Lost :(")
             self.restart()
         brain.wins = fit
-        print(f"[win|loss = {fit}|{10-fit}]")
             
 
 class nn:
     def __init__(self, parent = None):
 
         input_layer = 804
-        hidden_layer = 250
-        hidden_amount = 3
+        hidden_layer = 10
+        hidden_amount = 10
         output_layer = 216
 
         self.weights = [[]]
@@ -1220,7 +1211,7 @@ for i in range(10):
 
 best = 0
 epoch = 1
-while best < .9:
+while best < 9:
     best = 0
     for i in range(10):
         best = max(best,nns[i].wins)
@@ -1236,5 +1227,6 @@ while best < .9:
         nnns.append(nn())
     nns = nns
     for i in range(10):
-        print(f"NEURAL NET #{i}")
         test.play(nns[i])
+        print(f"NEURAL NET #{i}: {nns[i].wins}/10")
+        
