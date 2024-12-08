@@ -1,4 +1,5 @@
 import random
+import math
 
 class Player:
     def __init__(self, mark, hand, alive):
@@ -9,7 +10,7 @@ class Player:
         self.alive = alive
 
 class Game:
-    def __init__(self, numPlayers):
+    def __init__(self):
         self.drawPile = list(range(48))
         random.shuffle(self.drawPile)
         self.discardPile = []
@@ -18,18 +19,36 @@ class Game:
         self.extraMark = self.unusedMarks.pop()
         self.players = []
         for i in range(4):
-            if i<numPlayers:
-                hand = []
-                for j in range(3):
-                    hand.append(self.drawPile.pop())
-                self.players.append(Player(self.unusedMarks.pop(),hand, True))
-            else:
-                self.players.append(Player(self.unusedMarks.pop(),[], False))
+            hand = []
+            for j in range(3):
+                hand.append(self.drawPile.pop())
+            self.players.append(Player(self.unusedMarks.pop(),hand, True))
         self.bounties = []
         self.skips = []
 
         self.currentPlayer = 0
-        self.action = 0
+        self.actions = 0
+
+    def restart(self):
+        self.drawPile = list(range(48))
+        random.shuffle(self.drawPile)
+        self.discardPile = []
+        self.unusedMarks = list(range(5))
+        random.shuffle(self.unusedMarks)
+        self.extraMark = self.unusedMarks.pop()
+        for i in range(4):
+            hand = []
+            for j in range(3):
+                hand.append(self.drawPile.pop())
+            self.players[i].mark = self.unusedMarks.pop()
+            self.players[i].hand = hand
+            self.players[i].alive = True
+        self.bounties = []
+        self.skips = []
+
+        self.currentPlayer = 0
+        self.actions = 0
+
 
     def view(self):
         v = []
@@ -190,7 +209,7 @@ class Game:
         v.extend(cont)
 
         cont = [0]*3
-        cont[self.action] = 1
+        cont[self.actions] = 1
         v.extend(cont)
 
         cont = [0]*4
@@ -241,7 +260,7 @@ class Game:
             elif i < 42:
                 cont[16] += 1
             else:
-                cont[i-25] += 1
+                cont[i-26] += 1
 
         for i in cont:
             if i > 0:
@@ -454,6 +473,7 @@ class Game:
         else:
             v.extend([0]*5)
 
+
         #bounty 0
         if cont[18] > 0:
             v.extend([1])
@@ -505,10 +525,54 @@ class Game:
             
         return v
 
+    def lastdraw(self):
+        tar = random.randint(0, 3)
+        mar = random.randint(0, 4)
+
+        if len(self.drawPile) == 0:
+            for i in range(4):
+                if self.players[i].alive:
+                    for j in range(5):
+                        if self.players[self.currentPlayer].knowledge[i][j] == 1:
+                            tar = i
+                            mar = j
+
+        if self.players[tar].mark == mar:
+            #TODO: add kill gains
+            for i in range(len(self.players[tar].hand)):
+                self.discardPile.append(self.players[tar].hand.pop())
+            for i in range(len(self.players[tar].bank)):
+                self.discardPile.append(self.players[tar].bank.pop())
+            self.players[tar].alive = False
+            for i in range(4):
+                self.players[i].knowledge[tar][self.players[tar].mark]
+
+        else:
+            for i in range(len(self.players[self.currentPlayer].hand)):
+                self.discardPile.append(self.players[self.currentPlayer].hand.pop())
+            for i in range(len(self.players[self.currentPlayer].bank)):
+                self.discardPile.append(self.players[self.currentPlayer].bank.pop())
+            self.players[self.currentPlayer].alive = False
+            temp = self.players[tar].mark
+            self.players[tar].mark = self.players[self.currentPlayer].mark
+            self.players[self.currentPlayer].mark = temp
+            for i in range(4):
+                for j in range(5):
+                    temp = self.players[i].knowledge[tar][j]
+                    self.players[i].knowledge[tar][j] = self.players[i].knowledge[self.currentPlayer][j]
+                    self.players[i].knowledge[self.currentPlayer][j] = temp
+                self.players[i].knowledge[self.currentPlayer][self.players[self.currentPlayer].mark]
+            self.actions = 0
+            self.currentPlayer = (self.currentPlayer+1)%4
+
+        self.drawPile = self.discardPile
+        self.discardPile = []
+        random.shuffle(self.drawPile)
+
     def action(self, out):
         acts = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,29,77,78,79,84,89,98,103,151,156,161,166,171,176,181,182,183,184,185,186,187,188,189,190,191,196,201,206,211]
         mask = self.possible()
-        for i in len(out):
+        for i in range(len(out)):
             mask[i] = mask[i]*out[i]
 
         chosen = 0
@@ -516,9 +580,15 @@ class Game:
             if mask[i] > mask[chosen]:
                 chosen = i
 
+
         #draw
         if chosen == 0:
             self.players[self.currentPlayer].hand.append(self.drawPile.pop())
+            if len(self.drawPile) == 0:
+                self.lastdraw()
+
+
+                        
         #bank unmask
         elif chosen == 1:
             discard = -1
@@ -640,14 +710,13 @@ class Game:
             self.discardPile.append(self.players[self.currentPlayer].hand.pop(i))
         #bank bloodshot or bounties
         elif chosen <= 23:
-            discard = -1
-            self.players[self.currentPlayer].hand.remove(chosen+24)
-            self.discardPile.append(chosen+24)
+            self.players[self.currentPlayer].hand.remove(chosen+25)
+            self.discardPile.append(chosen+25)
         #play unmask
         elif chosen == 24:
-            best = 1
-            for i in range(1,5):
-                if mask[chosen+i] > mask[chosen+best]:
+            best = 0
+            for i in range(4):
+                if mask[chosen+i+1] > mask[chosen+best+1]:
                     best = i
             self.players[self.currentPlayer].knowledge[best][self.players[best].mark] = 1
 
@@ -671,9 +740,9 @@ class Game:
 
         #play tradeoff
         elif chosen == 29:
-            mycard = 1
-            for i in range(1,24):
-                if mask[chosen+i] > mask[chosen+mycard]:
+            best = 0
+            for i in range(24):
+                if mask[chosen+i+1] > mask[chosen+best+1]:
                     mycard = i
             pla = 0
             hob = 0
@@ -734,17 +803,438 @@ class Game:
 
         #play greed
         elif chosen == 77:
-            self.players[self.currentPlayer].hand.append(self.drawPile.pop())
-            self.players[self.currentPlayer].hand.append(self.drawPile.pop())
-
+        
             discard = -1
             for i in range(len(self.players[self.currentPlayer].hand)):
                 if self.players[self.currentPlayer].hand[i] >= 8 and self.players[self.currentPlayer].hand[i] < 10:
                     discard = i
             self.discardPile.append(self.players[self.currentPlayer].hand.pop(i))
+            for i in range(2):
+                self.players[self.currentPlayer].hand.append(self.drawPile.pop())
+                if len(self.drawPile) == 0:
+                    self.lastdraw()
 
-test = Game(3)
+        #play insomnia
+        elif chosen == 78:
+            self.actions -= 3
 
-print(len(test.view()))
-print(len(test.possible()))
+            discard = -1
+            for i in range(len(self.players[self.currentPlayer].hand)):
+                if self.players[self.currentPlayer].hand[i] >= 14 and self.players[self.currentPlayer].hand[i] < 16:
+                    discard = i
+            self.discardPile.append(self.players[self.currentPlayer].hand.pop(i))
 
+            debt = 3
+            for i in range(len(self.players[self.currentPlayer].bank)):
+                if debt > 0:
+                    te = self.players[self.currentPlayer].bank.pop()
+                    if te < 22:
+                        debt -= 1
+                    elif te < 38:
+                        debt -= 2
+                    else:
+                        debt -= 3
+                    self.discardPile.append(te)
+    
+        #play tied up
+        elif chosen == 79:
+            best = 0
+            for i in range(4):
+                if mask[chosen+i+1] > mask[chosen+best+1]:
+                    best = i
+            self.skips.append(best-1)
+
+            discard = -1
+            for i in range(len(self.players[self.currentPlayer].hand)):
+                if self.players[self.currentPlayer].hand[i] >= 16 and self.players[self.currentPlayer].hand[i] < 18:
+                    discard = i
+            self.discardPile.append(self.players[self.currentPlayer].hand.pop(i))
+
+            debt = 3
+            for i in range(len(self.players[self.currentPlayer].bank)):
+                if debt > 0:
+                    te = self.players[self.currentPlayer].bank.pop()
+                    if te < 22:
+                        debt -= 1
+                    elif te < 38:
+                        debt -= 2
+                    else:
+                        debt -= 3
+                    self.discardPile.append(te)
+        #play alter ego
+        elif chosen == 84:
+            best = 0
+            for i in range(4):
+                if mask[chosen+i+1] > mask[chosen+best+1]:
+                    best = i
+            temp = self.players[best].mark
+            self.players[best].mark = self.extraMark
+            self.extraMark = temp
+
+            for i in range(4):
+                for j in range(5):
+                    temp = self.players[i].knowledge[best][j]
+                    self.players[i].knowledge[best][j] = self.players[i].knowledge[4][j]
+                    self.players[i].knowledge[4][j] = temp
+
+
+            discard = -1
+            for i in range(len(self.players[self.currentPlayer].hand)):
+                if self.players[self.currentPlayer].hand[i] >= 18 and self.players[self.currentPlayer].hand[i] < 20:
+                    discard = i
+            self.discardPile.append(self.players[self.currentPlayer].hand.pop(i))
+
+            debt = 2
+            for i in range(len(self.players[self.currentPlayer].bank)):
+                if debt > 0:
+                    te = self.players[self.currentPlayer].bank.pop()
+                    if te < 22:
+                        debt -= 1
+                    elif te < 38:
+                        debt -= 2
+                    else:
+                        debt -= 3
+                    self.discardPile.append(te)
+
+        #play body swap
+        elif chosen == 89:
+            fir = 0
+            sec = 0
+            for i in range(4):
+                if mask[chosen+i+1] > mask[chosen+fir+1]:
+                    fir = i
+            for i in range(4):
+                if mask[chosen+i+5] > mask[chosen+fir+6]:
+                    sec = i
+            temp = self.players[fir].mark
+            self.players[fir].mark = self.players[sec].mark
+            self.players[sec].mark = temp
+
+            for i in range(4):
+                for j in range(5):
+                    temp = self.players[i].knowledge[fir][j]
+                    self.players[i].knowledge[fir][j] = self.players[i].knowledge[sec][j]
+                    self.players[i].knowledge[sec][j] = temp
+
+
+            discard = -1
+            for i in range(len(self.players[self.currentPlayer].hand)):
+                if self.players[self.currentPlayer].hand[i] >= 20 and self.players[self.currentPlayer].hand[i] < 22:
+                    discard = i
+            self.discardPile.append(self.players[self.currentPlayer].hand.pop(i))
+
+            debt = 3
+            for i in range(len(self.players[self.currentPlayer].bank)):
+                if debt > 0:
+                    te = self.players[self.currentPlayer].bank.pop()
+                    if te < 22:
+                        debt -= 1
+                    elif te < 38:
+                        debt -= 2
+                    else:
+                        debt -= 3
+                    self.discardPile.append(te)
+
+        #play arson
+        elif chosen == 98:
+            fir = 0
+            for i in range(4):
+                if mask[chosen+i+1] > mask[chosen+fir+1]:
+                    fir = i
+            for i in range(len(self.players[fir].bank)):
+                self.discardPile.append(self.players[fir].bank.pop())
+
+            discard = -1
+            for i in range(len(self.players[self.currentPlayer].hand)):
+                if self.players[self.currentPlayer].hand[i] >= 26 and self.players[self.currentPlayer].hand[i] < 28:
+                    discard = i
+            self.discardPile.append(self.players[self.currentPlayer].hand.pop(i))
+
+            debt = 5
+            for i in range(len(self.players[self.currentPlayer].bank)):
+                if debt > 0:
+                    te = self.players[self.currentPlayer].bank.pop()
+                    if te < 22:
+                        debt -= 1
+                    elif te < 38:
+                        debt -= 2
+                    else:
+                        debt -= 3
+                    self.discardPile.append(te)
+
+        #play upheaval
+        elif chosen == 103:
+            fir = 0
+            for i in range(47):
+                if mask[chosen+i+1] > mask[chosen+fir+1]:
+                    fir = i
+            
+            for i in range(fir):
+                self.drawPile.append(self.drawPile.pop())
+
+            discard = -1
+            for i in range(len(self.players[self.currentPlayer].hand)):
+                if self.players[self.currentPlayer].hand[i] >= 28 and self.players[self.currentPlayer].hand[i] < 30:
+                    discard = i
+            self.discardPile.append(self.players[self.currentPlayer].hand.pop(i))
+
+            debt = 5
+            for i in range(len(self.players[self.currentPlayer].bank)):
+                if debt > 0:
+                    te = self.players[self.currentPlayer].bank.pop()
+                    if te < 22:
+                        debt -= 1
+                    elif te < 38:
+                        debt -= 2
+                    else:
+                        debt -= 3
+                    self.discardPile.append(te)
+
+        #play lethal cards
+        elif chosen == 151 or chosen == 156 or chosen == 161 or chosen == 166 or chosen == 171 or chosen == 176:
+            fir = 0
+            for i in range(4):
+                if mask[chosen+i+1] > mask[chosen+fir+1]:
+                    fir = i
+            
+            #TODO: add kill gains
+
+            for i in range(len(self.players[fir].hand)):
+                self.discardPile.append(self.players[fir].hand.pop())
+
+            for i in range(len(self.players[fir].bank)):
+                self.discardPile.append(self.players[fir].bank.pop())
+
+            self.players[fir].alive = False
+
+            for i in range(4):
+                self.players[i].knowledge[fir][self.players[fir].mark]
+
+            discard = -1
+            for i in range(len(self.players[self.currentPlayer].hand)):
+                if self.players[self.currentPlayer].hand[i] >= 30 and self.players[self.currentPlayer].hand[i] < 33 and chosen == 151:
+                    discard = i
+                elif self.players[self.currentPlayer].hand[i] >= 33 and self.players[self.currentPlayer].hand[i] < 36 and chosen == 156:
+                    discard = i
+                elif self.players[self.currentPlayer].hand[i] >= 36 and self.players[self.currentPlayer].hand[i] < 38 and chosen == 161:
+                    discard = i
+                elif self.players[self.currentPlayer].hand[i] >= 38 and self.players[self.currentPlayer].hand[i] < 40 and chosen == 166:
+                    discard = i
+                elif self.players[self.currentPlayer].hand[i] >= 40 and self.players[self.currentPlayer].hand[i] < 42 and chosen == 171:
+                    discard = i
+                elif self.players[self.currentPlayer].hand[i] >= 42 and self.players[self.currentPlayer].hand[i] < 43 and chosen == 176:
+                    discard = i
+            self.discardPile.append(self.players[self.currentPlayer].hand.pop(i))
+
+            debt = 10
+            for i in range(len(self.players[self.currentPlayer].bank)):
+                if debt > 0:
+                    te = self.players[self.currentPlayer].bank.pop()
+                    if te < 22:
+                        debt -= 1
+                    elif te < 38:
+                        debt -= 2
+                    else:
+                        debt -= 3
+                    self.discardPile.append(te)
+
+        elif chosen < 186:
+            discard = -1
+            for i in range(len(self.players[self.currentPlayer].hand)):
+                if self.players[self.currentPlayer].hand[i] == chosen - 137:
+                    discard = i
+            self.players[self.currentPlayer].hand.pop(i)
+            self.bounties.append([chosen-181,4])
+
+            for i in range(3):
+                self.players[self.currentPlayer].hand.append(self.drawPile.pop())
+                if len(self.drawPile) == 0:
+                    self.lastdraw()
+
+        elif chosen < 191:
+            de = -1
+            for i in range(len(self.bounties)):
+                if self.bounties[i][0] == chosen - 143:
+                    de = i
+            self.bounties.pop(de)
+            self.discardPile.append(chosen-142)
+
+            debt = 5
+            for i in range(len(self.players[self.currentPlayer].bank)):
+                if debt > 0:
+                    te = self.players[self.currentPlayer].bank.pop()
+                    if te < 22:
+                        debt -= 1
+                    elif te < 38:
+                        debt -= 2
+                    else:
+                        debt -= 3
+                    self.discardPile.append(te)
+
+        else:
+            fir = 0
+            for i in range(4):
+                if mask[chosen+i+1] > mask[chosen+fir+1]:
+                    fir = i
+            
+            if self.players[fir].mark == (chosen-191)/5:
+                #TODO: add kill gains
+                for i in range(len(self.players[fir].hand)):
+                    self.discardPile.append(self.players[fir].hand.pop())
+                for i in range(len(self.players[fir].bank)):
+                    self.discardPile.append(self.players[fir].bank.pop())
+                self.players[fir].alive = False
+                for i in range(4):
+                    self.players[i].knowledge[fir][self.players[fir].mark]
+
+            else:
+                for i in range(len(self.players[self.currentPlayer].hand)):
+                    self.discardPile.append(self.players[self.currentPlayer].hand.pop())
+                for i in range(len(self.players[self.currentPlayer].bank)):
+                    self.discardPile.append(self.players[self.currentPlayer].bank.pop())
+                self.players[self.currentPlayer].alive = False
+                temp = self.players[fir].mark
+                self.players[fir].mark = self.players[self.currentPlayer].mark
+                self.players[self.currentPlayer].mark = temp
+                for i in range(4):
+                    for j in range(5):
+                        temp = self.players[i].knowledge[fir][j]
+                        self.players[i].knowledge[fir][j] = self.players[i].knowledge[self.currentPlayer][j]
+                        self.players[i].knowledge[self.currentPlayer][j] = temp
+                    self.players[i].knowledge[self.currentPlayer][self.players[self.currentPlayer].mark]
+                self.actions = 0
+                self.currentPlayer = (self.currentPlayer+1)%4
+
+    def play(self, brain):
+        
+        fit = 0
+        for i in range(10):
+            print(f"Game {i+1}")
+            left = 4
+            last = 4
+            while left > 1:
+                if last != left:
+                    print(f"Only {left} players left!")
+                    last = left
+                v = []
+                if self.currentPlayer == 0:
+                    v = brain.pred(self.view())
+                else:
+                    for i in range(216):
+                        v.append(random.random())
+                if self.players[self.currentPlayer].alive or self.currentPlayer in self.skips:
+                    self.action(v)
+                    if self.currentPlayer in self.skips:
+                        self.skips.remove(self.currentPlayer)
+                for i in self.bounties:
+                    i[1] -= 1
+                self.actions += 1
+                if self.actions > 2:
+                    self.actions = 0
+                    self.currentPlayer = (self.currentPlayer+1)%4
+                left = 0
+                for i in self.players:
+                    if i.alive:
+                        left += 1
+            if self.players[0].alive:
+                fit += 1
+                print("Neural Net Won!")
+            else:
+                print("Neural Net Lost :(")
+            self.restart()
+        brain.wins = fit
+        print(f"[win|loss = {fit}|{10-fit}]")
+            
+
+class nn:
+    def __init__(self, parent = None):
+
+        input_layer = 804
+        hidden_layer = 250
+        hidden_amount = 3
+        output_layer = 216
+
+        self.weights = [[]]
+        if parent != None:
+            for i in range(input_layer):
+                self.weights[0].append([])
+                for j in range(hidden_layer):
+                    self.weights[0][i].append(parent.weights[0][i][j] * (1+random.random()*.1-.05))
+            for i in range(hidden_amount):
+                self.weights.append([])
+                for j in range(hidden_layer):
+                    self.weights[i+1].append([])
+                    for k in range(hidden_layer):
+                        self.weights[i+1][j].append(parent.weights[i+1][j][k] * (1+random.random()*.1-.05))
+            self.weights.append([])
+            for i in range(hidden_layer):
+                self.weights[-1].append([])
+                for j in range(output_layer):
+                    self.weights[-1][i].append(parent.weights[-1][i][j] * (1+random.random()*.1-.05))
+        else:
+            for i in range(input_layer):
+                self.weights[0].append([])
+                for j in range(hidden_layer):
+                    self.weights[0][i].append(2*random.random()-1)
+            for i in range(hidden_amount):
+                self.weights.append([])
+                for j in range(hidden_layer):
+                    self.weights[i+1].append([])
+                    for k in range(hidden_layer):
+                        self.weights[i+1][j].append(2*random.random()-1)
+            self.weights.append([])
+            for i in range(hidden_layer):
+                self.weights[-1].append([])
+                for j in range(output_layer):
+                    self.weights[-1][i].append(2*random.random()-1)
+        self.wins = 0
+
+    def pred(self, inp):
+        activations = [inp]
+        for i in range(len(self.weights)):
+            activations.append([0]*len(self.weights[i][0]))
+            for j in range(len(self.weights[i])):
+                for k in range(len(self.weights[i][j])):
+                    activations[i+1][k] += activations[i][j]*self.weights[i][j][k]
+            for j in range(len(activations[i+1])):
+                activations[i + 1][j] = 1 / (1 + math.exp(-activations[i+1][j]))
+            maxi = activations[i + 1][0]
+            mini = activations[i + 1][0]
+            for j in range(len(activations[i+1])):
+                maxi = max(activations[i + 1][j],maxi)
+                mini = min(activations[i + 1][j],mini)
+            for j in range(len(activations[i+1])):
+                activations[i + 1][j] = (activations[i + 1][j] - mini)/(maxi-mini) - 0.5
+        for i in range(len(activations[-1])):
+            activations[-1][i] += .5
+        return activations[-1]
+
+test = Game()
+nns = []
+print("INITIALIZATION")
+for i in range(10):
+    newnet = nn()
+    print(f"NEURAL NET #{i}")
+    test.play(newnet)
+    nns.append(newnet)
+
+best = 0
+epoch = 1
+while best < .9:
+    best = 0
+    for i in range(10):
+        best = max(best,nns[i].wins)
+    inde = 0
+    print(f"best run: {best}/10")
+    print(f"EPOCH {epoch}")
+    nnns = []
+    while len(nnns) < 8:
+        if random.random() < (nns[inde].wins/best)**2:
+            nnns.append(nn(nns[inde]))
+        inde = (inde+1)%10
+    for i in range(2):
+        nnns.append(nn())
+    nns = nns
+    for i in range(10):
+        print(f"NEURAL NET #{i}")
+        test.play(nns[i])
