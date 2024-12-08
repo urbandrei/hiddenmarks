@@ -1,3 +1,28 @@
+SORT:
+18-22 bounty x5  181,182,183,184,185,186,187,188,189,190,191,192,197,202,207,212
+17 bloodshot x1  176
+16 backfire x2  171
+15 gold digger x2  166
+14 rehanded x2  161
+13 heavy hand x3  156
+12 counterfeit x3  151
+11 upheaval x2  103
+10 arson x2  98
+9 snub x4  
+8 bodyswap x2  89
+7 alter ego x2  84
+6 tied up x2  79
+5 insomnia x2  78
+4 revenge x2   x
+3 blindspot x2  x
+2 greed x2  77   x
+1 tradeoff x4  29   x
+0 unmask x4  24   x
+
+
+
+
+
 Ouput:
 Draw
 ---
