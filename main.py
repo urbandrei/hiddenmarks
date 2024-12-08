@@ -1,5 +1,7 @@
 import random
 import math
+import matplotlib.pyplot as plt
+
 
 class Player:
     def __init__(self, mark, hand, alive):
@@ -1141,8 +1143,8 @@ class nn:
     def __init__(self, parent = None):
 
         input_layer = 804
-        hidden_layer = 10
-        hidden_amount = 10
+        hidden_layer = 100
+        hidden_amount = 4
         output_layer = 216
 
         self.weights = [[]]
@@ -1200,33 +1202,43 @@ class nn:
             activations[-1][i] += .5
         return activations[-1]
 
+population = 10
 test = Game()
 nns = []
 print("INITIALIZATION")
-for i in range(10):
+for i in range(population):
     newnet = nn()
-    print(f"NEURAL NET #{i}")
     test.play(newnet)
     nns.append(newnet)
+    print(f"NEURAL NET #{i}: {nns[i].wins}/10")
 
 best = 0
 epoch = 1
-while best < 9:
+datax = []
+datay = []
+while best < population:
     best = 0
-    for i in range(10):
+    total = 0
+    for i in range(population):
         best = max(best,nns[i].wins)
+        total += nns[i].wins
     inde = 0
-    print(f"best run: {best}/10")
-    print(f"EPOCH {epoch}")
+    print(f"EPOCH #{epoch} best run: {best}/10")
     nnns = []
-    while len(nnns) < 8:
+    while len(nnns) < population-2:
         if random.random() < (nns[inde].wins/best)**2:
             nnns.append(nn(nns[inde]))
         inde = (inde+1)%10
     for i in range(2):
         nnns.append(nn())
     nns = nns
-    for i in range(10):
+    for i in range(population):
         test.play(nns[i])
-        print(f"NEURAL NET #{i}: {nns[i].wins}/10")
+    datax.append(epoch)
+    datay.append(total/population)
+    epoch += 1
+
+    plt.plot(datax,datay)
+    plt.savefig("out.png")
+    plt.clf()
         
