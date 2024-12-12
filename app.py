@@ -225,6 +225,9 @@ class Game:
     def possible(self):
         v = [1]
 
+        if len(self.players[self.currentPlayer].hand)>0:
+            v.extend([1])
+
         cont = [0]*23
         for i in self.players[self.currentPlayer].hand:
             if i < 4:
@@ -582,6 +585,7 @@ class Game:
             if mask[i] > mask[chosen]:
                 chosen = i
 
+        print(chosen)
 
         #draw
         if chosen == 0:
@@ -597,123 +601,123 @@ class Game:
             for i in range(len(self.players[self.currentPlayer].hand)):
                 if self.players[self.currentPlayer].hand[i] < 4:
                     discard = i
-            self.discardPile.append(self.players[self.currentPlayer].hand.pop(i))
+            self.players[self.currentPlayer].bank.append(self.players[self.currentPlayer].hand.pop(i))
         #bank tradeoff
         elif chosen == 2:
             discard = -1
             for i in range(len(self.players[self.currentPlayer].hand)):
                 if self.players[self.currentPlayer].hand[i] >= 4 and self.players[self.currentPlayer].hand[i] < 8:
                     discard = i
-            self.discardPile.append(self.players[self.currentPlayer].hand.pop(i))
+            self.players[self.currentPlayer].bank.append(self.players[self.currentPlayer].hand.pop(i))
         #bank greed
         elif chosen == 3:
             discard = -1
             for i in range(len(self.players[self.currentPlayer].hand)):
                 if self.players[self.currentPlayer].hand[i] >= 8 and self.players[self.currentPlayer].hand[i] < 10:
                     discard = i
-            self.discardPile.append(self.players[self.currentPlayer].hand.pop(i))
+            self.players[self.currentPlayer].bank.append(self.players[self.currentPlayer].hand.pop(i))
         #bank blindspot
         elif chosen == 4:
             discard = -1
             for i in range(len(self.players[self.currentPlayer].hand)):
                 if self.players[self.currentPlayer].hand[i] >= 10 and self.players[self.currentPlayer].hand[i] < 12:
                     discard = i
-            self.discardPile.append(self.players[self.currentPlayer].hand.pop(i))
+            self.players[self.currentPlayer].bank.append(self.players[self.currentPlayer].hand.pop(i))
         #bank revenge
         elif chosen == 5:
             discard = -1
             for i in range(len(self.players[self.currentPlayer].hand)):
                 if self.players[self.currentPlayer].hand[i] >= 12 and self.players[self.currentPlayer].hand[i] < 14:
                     discard = i
-            self.discardPile.append(self.players[self.currentPlayer].hand.pop(i))
+            self.players[self.currentPlayer].bank.append(self.players[self.currentPlayer].hand.pop(i))
         #bank insomnia
         elif chosen == 6:
             discard = -1
             for i in range(len(self.players[self.currentPlayer].hand)):
                 if self.players[self.currentPlayer].hand[i] >= 14 and self.players[self.currentPlayer].hand[i] < 16:
                     discard = i
-            self.discardPile.append(self.players[self.currentPlayer].hand.pop(i))
+            self.players[self.currentPlayer].bank.append(self.players[self.currentPlayer].hand.pop(i))
         #bank tied up
         elif chosen == 7:
             discard = -1
             for i in range(len(self.players[self.currentPlayer].hand)):
                 if self.players[self.currentPlayer].hand[i] >= 16 and self.players[self.currentPlayer].hand[i] < 18:
                     discard = i
-            self.discardPile.append(self.players[self.currentPlayer].hand.pop(i))
+            self.players[self.currentPlayer].bank.append(self.players[self.currentPlayer].hand.pop(i))
         #bank alter ego
         elif chosen == 8:
             discard = -1
             for i in range(len(self.players[self.currentPlayer].hand)):
                 if self.players[self.currentPlayer].hand[i] >= 18 and self.players[self.currentPlayer].hand[i] < 20:
                     discard = i
-            self.discardPile.append(self.players[self.currentPlayer].hand.pop(i))
+            self.players[self.currentPlayer].bank.append(self.players[self.currentPlayer].hand.pop(i))
         #bank bodyswap
         elif chosen == 9:
             discard = -1
             for i in range(len(self.players[self.currentPlayer].hand)):
                 if self.players[self.currentPlayer].hand[i] >= 20 and self.players[self.currentPlayer].hand[i] < 22:
                     discard = i
-            self.discardPile.append(self.players[self.currentPlayer].hand.pop(i))
+            self.players[self.currentPlayer].bank.append(self.players[self.currentPlayer].hand.pop(i))
         #bank snub
         elif chosen == 10:
             discard = -1
             for i in range(len(self.players[self.currentPlayer].hand)):
                 if self.players[self.currentPlayer].hand[i] >= 22 and self.players[self.currentPlayer].hand[i] < 26:
                     discard = i
-            self.discardPile.append(self.players[self.currentPlayer].hand.pop(i))
+            self.players[self.currentPlayer].bank.append(self.players[self.currentPlayer].hand.pop(i))
         #bank arson
         elif chosen == 11:
             discard = -1
             for i in range(len(self.players[self.currentPlayer].hand)):
                 if self.players[self.currentPlayer].hand[i] >= 26 and self.players[self.currentPlayer].hand[i] < 28:
                     discard = i
-            self.discardPile.append(self.players[self.currentPlayer].hand.pop(i))
+            self.players[self.currentPlayer].bank.append(self.players[self.currentPlayer].hand.pop(i))
         #bank upheaval
         elif chosen == 12:
             discard = -1
             for i in range(len(self.players[self.currentPlayer].hand)):
                 if self.players[self.currentPlayer].hand[i] >= 28 and self.players[self.currentPlayer].hand[i] < 30:
                     discard = i
-            self.discardPile.append(self.players[self.currentPlayer].hand.pop(i))
+            self.players[self.currentPlayer].bank.append(self.players[self.currentPlayer].hand.pop(i))
         #bank counterfeit
         elif chosen == 13:
             discard = -1
             for i in range(len(self.players[self.currentPlayer].hand)):
                 if self.players[self.currentPlayer].hand[i] >= 30 and self.players[self.currentPlayer].hand[i] < 33:
                     discard = i
-            self.discardPile.append(self.players[self.currentPlayer].hand.pop(i))
+            self.players[self.currentPlayer].bank.append(self.players[self.currentPlayer].hand.pop(i))
         #bank heavyhand
         elif chosen == 14:
             discard = -1
             for i in range(len(self.players[self.currentPlayer].hand)):
                 if self.players[self.currentPlayer].hand[i] >= 33 and self.players[self.currentPlayer].hand[i] < 36:
                     discard = i
-            self.discardPile.append(self.players[self.currentPlayer].hand.pop(i))
+            self.players[self.currentPlayer].bank.append(self.players[self.currentPlayer].hand.pop(i))
         #bank red handed
         elif chosen == 15:
             discard = -1
             for i in range(len(self.players[self.currentPlayer].hand)):
                 if self.players[self.currentPlayer].hand[i] >= 36 and self.players[self.currentPlayer].hand[i] < 38:
                     discard = i
-            self.discardPile.append(self.players[self.currentPlayer].hand.pop(i))
+            self.players[self.currentPlayer].bank.append(self.players[self.currentPlayer].hand.pop(i))
         #bank gold digger
         elif chosen == 16:
             discard = -1
             for i in range(len(self.players[self.currentPlayer].hand)):
                 if self.players[self.currentPlayer].hand[i] >= 38 and self.players[self.currentPlayer].hand[i] < 40:
                     discard = i
-            self.discardPile.append(self.players[self.currentPlayer].hand.pop(i))
+            self.players[self.currentPlayer].bank.append(self.players[self.currentPlayer].hand.pop(i))
         #bank gold digger
         elif chosen == 17:
             discard = -1
             for i in range(len(self.players[self.currentPlayer].hand)):
                 if self.players[self.currentPlayer].hand[i] >= 40 and self.players[self.currentPlayer].hand[i] < 42:
                     discard = i
-            self.discardPile.append(self.players[self.currentPlayer].hand.pop(i))
+            self.players[self.currentPlayer].bank.append(self.players[self.currentPlayer].hand.pop(i))
         #bank bloodshot or bounties
         elif chosen <= 23:
             self.players[self.currentPlayer].hand.remove(chosen+25)
-            self.discardPile.append(chosen+25)
+            self.players[self.currentPlayer].bank.append(chosen+25)
         #play unmask
         elif chosen == 24:
             best = 0
@@ -1137,108 +1141,109 @@ class Game:
                 fit += 1
             self.restart()
         brain.wins = fit
-            
 
-class nn:
-    def __init__(self, parent = None):
+game = Game()
 
-        input_layer = 804
-        hidden_layer = 100
-        hidden_amount = 4
-        output_layer = 216
+def in_data():
+    res = {
+        "actions": game.actions,
+        "drawPile": game.drawPile,
+        "discardPile": game.discardPile,
+        "unusedMarks": game.unusedMarks,
+        "extraMark": game.extraMark,
+        "bounties": game.bounties,
+        "skips": game.skips,
+        "currentPlayer": game.currentPlayer,
+        "actions": game.actions,
+        "players": []
+    }
+    for i in game.players:
+        res["players"].append({
+            "hand": i.hand,
+            "bank": i.bank,
+            "knowledge": i.knowledge,
+            "mark": i.mark,
+            "alive": i.alive
+        })
+    return res
 
-        self.weights = [[]]
-        if parent != None:
-            for i in range(input_layer):
-                self.weights[0].append([])
-                for j in range(hidden_layer):
-                    self.weights[0][i].append(parent.weights[0][i][j] * (1+random.random()*.1-.05))
-            for i in range(hidden_amount):
-                self.weights.append([])
-                for j in range(hidden_layer):
-                    self.weights[i+1].append([])
-                    for k in range(hidden_layer):
-                        self.weights[i+1][j].append(parent.weights[i+1][j][k] * (1+random.random()*.1-.05))
-            self.weights.append([])
-            for i in range(hidden_layer):
-                self.weights[-1].append([])
-                for j in range(output_layer):
-                    self.weights[-1][i].append(parent.weights[-1][i][j] * (1+random.random()*.1-.05))
-        else:
-            for i in range(input_layer):
-                self.weights[0].append([])
-                for j in range(hidden_layer):
-                    self.weights[0][i].append(2*random.random()-1)
-            for i in range(hidden_amount):
-                self.weights.append([])
-                for j in range(hidden_layer):
-                    self.weights[i+1].append([])
-                    for k in range(hidden_layer):
-                        self.weights[i+1][j].append(2*random.random()-1)
-            self.weights.append([])
-            for i in range(hidden_layer):
-                self.weights[-1].append([])
-                for j in range(output_layer):
-                    self.weights[-1][i].append(2*random.random()-1)
-        self.wins = 0
+def out_data(obj):
+    game.actions = obj["actions"]
+    game.drawPile = obj["drawPile"]
+    game.discardPile = obj["discardPile"]
+    game.unusedMarks = obj["unusedMarks"]
+    game.extraMark = obj["extraMark"]
+    game.bounties = obj["bounties"]
+    game.skips = obj["skips"]
+    game.currentPlayer = obj["currentPlayer"]
+    game.actions = obj["actions"]
+    for i in range(len(game.players)):
+        game.players[i].hand = obj["players"][i]["hand"]
+        game.players[i].bank = obj["players"][i]["bank"]
+        game.players[i].knowledge = obj["players"][i]["knowledge"]
+        game.players[i].mark = obj["players"][i]["mark"]
+        game.players[i].alive = obj["players"][i]["alive"]
 
-    def pred(self, inp):
-        activations = [inp]
-        for i in range(len(self.weights)):
-            activations.append([0]*len(self.weights[i][0]))
-            for j in range(len(self.weights[i])):
-                for k in range(len(self.weights[i][j])):
-                    activations[i+1][k] += activations[i][j]*self.weights[i][j][k]
-            for j in range(len(activations[i+1])):
-                activations[i + 1][j] = 1 / (1 + math.exp(-activations[i+1][j]))
-            maxi = activations[i + 1][0]
-            mini = activations[i + 1][0]
-            for j in range(len(activations[i+1])):
-                maxi = max(activations[i + 1][j],maxi)
-                mini = min(activations[i + 1][j],mini)
-            for j in range(len(activations[i+1])):
-                activations[i + 1][j] = (activations[i + 1][j] - mini)/(maxi-mini) - 0.5
-        for i in range(len(activations[-1])):
-            activations[-1][i] += .5
-        return activations[-1]
+def end_action():
+    game.actions += 1
+    if game.actions > 2:
+        game.currentPlayer = (game.currentPlayer+1)%4
+        while game.currentPlayer in game.skips:
+            for i in game.bounties:
+                i = max(0,i-1)
+            game.skips.remove(game.currentPlayer)
+            game.currentPlayer = (game.currentPlayer+1)%4
+        for i in game.bounties:
+            i = max(0,i-1)
+        game.actions = 0
 
-population = 10
-test = Game()
-nns = []
-print("INITIALIZATION")
-for i in range(population):
-    newnet = nn()
-    test.play(newnet)
-    nns.append(newnet)
-    print(f"NEURAL NET #{i}: {nns[i].wins}/10")
+from flask import Flask, render_template, request, redirect, url_for
+import database
 
-best = 0
-epoch = 1
-datax = []
-datay = []
-while best < population:
-    best = 0
-    total = 0
-    for i in range(population):
-        best = max(best,nns[i].wins)
-        total += nns[i].wins
-    inde = 0
-    print(f"EPOCH #{epoch} best run: {best}/10")
-    nnns = []
-    while len(nnns) < population-2:
-        if random.random() < (nns[inde].wins/best)**2:
-            nnns.append(nn(nns[inde]))
-        inde = (inde+1)%10
-    for i in range(2):
-        nnns.append(nn())
-    nns = nns
-    for i in range(population):
-        test.play(nns[i])
-    datax.append(epoch)
-    datay.append(total/population)
-    epoch += 1
+database.update_data(in_data())
 
-    plt.plot(datax,datay)
-    plt.savefig("out.png")
-    plt.clf()
-        
+app = Flask(__name__)
+
+@app.route("/")
+def get_game():
+    g = database.retrieve_data()
+    g.pop("_id")
+    out_data(g)
+    print(game.possible())
+    return g
+
+@app.route("/draw")
+def draw():
+    g = database.retrieve_data()
+    out_data(g)
+    v = [1]
+    v.extend([0]*216)
+    game.action(v)
+    end_action()
+    g = in_data()
+    database.update_data(g)
+    return redirect(url_for('get_game'))
+
+@app.route("/bank/<id>")
+def bank(id):
+    g = database.retrieve_data()
+    out_data(g)
+    v = [0,1]
+    v.extend([0]*int(id))
+    v.extend([1])
+    v.extend([0]*(214-int(id)))
+    good = True
+    check = game.possible()
+    for i in range(len(check)):
+        if check[i]*v[i] != v[i]:
+            good = False
+            print("bad move")
+    if good:
+        game.action(v)
+        end_action()
+        g = in_data()
+        database.update_data(g)
+    return redirect(url_for('get_game'))
+
+if __name__ == "__main__":
+    app.run(debug=True)
