@@ -2,7 +2,6 @@ import random
 import math
 import matplotlib.pyplot as plt
 
-
 class Player:
     def __init__(self, mark, hand, alive):
         self.hand = hand
@@ -30,6 +29,9 @@ class Game:
 
         self.currentPlayer = 0
         self.actions = 0
+
+    
+
 
     def restart(self):
         self.drawPile = list(range(48))
@@ -227,6 +229,8 @@ class Game:
 
         if len(self.players[self.currentPlayer].hand)>0:
             v.extend([1])
+        else:
+            v.extend([0])
 
         cont = [0]*23
         for i in self.players[self.currentPlayer].hand:
@@ -285,7 +289,7 @@ class Game:
         #unmask
         if cont[0] > 0 and money >= 3:
             ad = [1]*5
-            ad[self.currentPlayer] = 0
+            ad[self.currentPlayer+1] = 0
             v.extend(ad)
         else:
             v.extend([0]*5)
@@ -1111,6 +1115,646 @@ class Game:
                 self.actions = 0
                 self.currentPlayer = (self.currentPlayer+1)%4
 
+    def randAction(self):
+        money = 0
+        for i in self.players[self.currentPlayer].hand:
+            if i < 22:
+                money += 1
+            elif i < 38:
+                money += 2
+            else:
+                money += 3
+        if money > 9:
+            rhtar = []
+            bstar = []
+            bftar = []
+            gdtar = []
+            hhtar = []
+            cftar = []
+            for i in range(len(self.players)):
+                if i != self.currentPlayer and self.players[i].alive:
+                    if len(self.players[i].hand) > 4 and len([i for i in [41,40] if i in self.players[self.currentPlayer].hand]) > 0:
+                        bftar.append(i)
+                    if len(self.players[i].hand) > 5 and len([i for i in [35,34,33] if i in self.players[self.currentPlayer].hand]) > 0:
+                        hhtar.append(i)
+                    if len(self.players[i].bank) > 4 and len([i for i in [39,38] if i in self.players[self.currentPlayer].hand]) > 0:
+                        gdtar.append(i)
+                    if len(self.players[i].bank) > 5 and len([i for i in [32,31,30] if i in self.players[self.currentPlayer].hand]) > 0:
+                        cftar.append(i)
+                    rednum = 0
+                    for j in self.players[i].hand:
+                        if j >= 38:
+                            rednum += 1
+                    if rednum != 0  and len([i for i in [42] if i in self.players[self.currentPlayer].hand]) > 0:
+                        bstar.append(i)
+                    if rednum > 1  and len([i for i in [37,36] if i in self.players[self.currentPlayer].hand]) > 0:
+                        rhtar.append(i)
+            ran = random.randint(0,len(rhtar)+len(bstar)+len(bftar)+len(gdtar)+len(hhtar)+len(cftar)+len(self.players[self.currentPlayer].hand))
+            if ran < len(rhtar):
+                ind = rhtar[ran]
+                self.players[ind].alive = False
+                for i in range(len(self.players[ind].hand)):
+                    self.discardPile.append(self.players[ind].hand.pop())
+                for i in range(len(self.players[ind].hand)):
+                    self.discardPile.append(self.players[ind].hand.pop())
+                if 37 in self.players[self.currentPlayer].hand:
+                    self.players[self.currentPlayer].hand.remove(37)
+                elif 36 in self.players[self.currentPlayer].hand:
+                    self.players[self.currentPlayer].hand.remove(36)
+                debt = 10
+                for i in range(len(self.players[self.currentPlayer].bank)):
+                    if debt > 0:
+                        if self.players[self.currentPlayer].bank[i] < 22:
+                            debt -= 1
+                        elif self.players[self.currentPlayer].bank[i] < 38:
+                            debt -= 2
+                        else:
+                            debt -= 3
+            elif ran < len(rhtar)+len(bstar):
+                ind = bstar[ran-len(rhtar)]
+                self.players[ind].alive = False
+                for i in range(len(self.players[ind].hand)):
+                    self.discardPile.append(self.players[ind].hand.pop())
+                for i in range(len(self.players[ind].hand)):
+                    self.discardPile.append(self.players[ind].hand.pop())
+                if 42 in self.players[self.currentPlayer].hand:
+                    self.players[self.currentPlayer].hand.remove(42)
+                debt = 10
+                for i in range(len(self.players[self.currentPlayer].bank)):
+                    if debt > 0:
+                        if self.players[self.currentPlayer].bank[i] < 22:
+                            debt -= 1
+                        elif self.players[self.currentPlayer].bank[i] < 38:
+                            debt -= 2
+                        else:
+                            debt -= 3
+            elif ran < len(rhtar)+len(bstar)+len(bftar):
+                ind = bftar[ran-(len(rhtar)+len(bstar))]
+                self.players[ind].alive = False
+                for i in range(len(self.players[ind].hand)):
+                    self.discardPile.append(self.players[ind].hand.pop())
+                for i in range(len(self.players[ind].hand)):
+                    self.discardPile.append(self.players[ind].hand.pop())
+                if 41 in self.players[self.currentPlayer].hand:
+                    self.players[self.currentPlayer].hand.remove(41)
+                elif 40 in self.players[self.currentPlayer].hand:
+                    self.players[self.currentPlayer].hand.remove(40)
+                debt = 10
+                for i in range(len(self.players[self.currentPlayer].bank)):
+                    if debt > 0:
+                        if self.players[self.currentPlayer].bank[i] < 22:
+                            debt -= 1
+                        elif self.players[self.currentPlayer].bank[i] < 38:
+                            debt -= 2
+                        else:
+                            debt -= 3
+            elif ran < len(rhtar)+len(bstar)+len(bftar)+len(gdtar):
+                ind = gdtar[ran-(len(rhtar)+len(bstar)+len(bftar))]
+                self.players[ind].alive = False
+                for i in range(len(self.players[ind].hand)):
+                    self.discardPile.append(self.players[ind].hand.pop())
+                for i in range(len(self.players[ind].hand)):
+                    self.discardPile.append(self.players[ind].hand.pop())
+                if 39 in self.players[self.currentPlayer].hand:
+                    self.players[self.currentPlayer].hand.remove(39)
+                elif 38 in self.players[self.currentPlayer].hand:
+                    self.players[self.currentPlayer].hand.remove(38)
+                debt = 10
+                for i in range(len(self.players[self.currentPlayer].bank)):
+                    if debt > 0:
+                        if self.players[self.currentPlayer].bank[i] < 22:
+                            debt -= 1
+                        elif self.players[self.currentPlayer].bank[i] < 38:
+                            debt -= 2
+                        else:
+                            debt -= 3
+            elif ran < len(rhtar)+len(bstar)+len(bftar)+len(gdtar)+len(hhtar):
+                ind = hhtar[ran-(len(rhtar)+len(bstar)+len(bftar)+len(gdtar))]
+                self.players[ind].alive = False
+                for i in range(len(self.players[ind].hand)):
+                    self.discardPile.append(self.players[ind].hand.pop())
+                for i in range(len(self.players[ind].hand)):
+                    self.discardPile.append(self.players[ind].hand.pop())
+                if 35 in self.players[self.currentPlayer].hand:
+                    self.players[self.currentPlayer].hand.remove(35)
+                elif 34 in self.players[self.currentPlayer].hand:
+                    self.players[self.currentPlayer].hand.remove(34)
+                elif 33 in self.players[self.currentPlayer].hand:
+                    self.players[self.currentPlayer].hand.remove(33)
+                debt = 10
+                for i in range(len(self.players[self.currentPlayer].bank)):
+                    if debt > 0:
+                        if self.players[self.currentPlayer].bank[i] < 22:
+                            debt -= 1
+                        elif self.players[self.currentPlayer].bank[i] < 38:
+                            debt -= 2
+                        else:
+                            debt -= 3
+            elif ran < len(rhtar)+len(bstar)+len(bftar)+len(gdtar)+len(hhtar)+len(cftar):
+                ind = cftar[ran-(len(rhtar)+len(bstar)+len(bftar)+len(gdtar)+len(hhtar))]
+                self.players[ind].alive = False
+                for i in range(len(self.players[ind].hand)):
+                    self.discardPile.append(self.players[ind].hand.pop())
+                for i in range(len(self.players[ind].hand)):
+                    self.discardPile.append(self.players[ind].hand.pop())
+                if 32 in self.players[self.currentPlayer].hand:
+                    self.players[self.currentPlayer].hand.remove(32)
+                elif 31 in self.players[self.currentPlayer].hand:
+                    self.players[self.currentPlayer].hand.remove(31)
+                elif 30 in self.players[self.currentPlayer].hand:
+                    self.players[self.currentPlayer].hand.remove(30)
+                debt = 10
+                for i in range(len(self.players[self.currentPlayer].bank)):
+                    if debt > 0:
+                        if self.players[self.currentPlayer].bank[i] < 22:
+                            debt -= 1
+                        elif self.players[self.currentPlayer].bank[i] < 38:
+                            debt -= 2
+                        else:
+                            debt -= 3
+            elif ran != len(rhtar)+len(bstar)+len(bftar)+len(gdtar)+len(hhtar)+len(cftar)+len(self.players[self.currentPlayer].hand):
+                self.players[self.currentPlayer].bank.append(self.players[self.currentPlayer].hand.pop(ran-(len(rhtar)+len(bstar)+len(bftar)+len(gdtar)+len(hhtar)+len(cftar))))
+            else:
+                self.players[self.currentPlayer].hand.append(self.drawPile.pop())
+        else:
+            ran = random.randint(0,len(self.players[self.currentPlayer].hand))
+            if ran != len(self.players[self.currentPlayer].hand):
+                self.players[self.currentPlayer].bank.append(self.players[self.currentPlayer].hand.pop(ran))
+            else:
+                self.players[self.currentPlayer].hand.append(self.drawPile.pop())
+        if len(self.drawPile) == 0:
+            self.players[self.currentPlayer].alive = False
+            for i in range(len(self.players[self.currentPlayer].hand)):
+                self.discardPile.append(self.players[self.currentPlayer].hand.pop())
+            for i in range(len(self.players[self.currentPlayer].hand)):
+                self.discardPile.append(self.players[self.currentPlayer].hand.pop())
+            for i in range(len(self.discardPile)):
+                self.drawPile.append(self.discardPile.pop(random.randint(0,len(self.discardPile)-1)))
+            self.actions = -1
+            self.currentPlayer = (self.currentPlayer + 1)%4
+        self.actions += 1
+        if self.actions > 2:
+            self.actions = 0
+            self.currentPlayer = (self.currentPlayer + 1)%4
+        numplaye = 0
+        for i in range(4):
+            if self.players[i].alive:
+                numplaye += 1
+        while self.players[self.currentPlayer].alive == False and numplaye > 1:
+            self.currentPlayer = (self.currentPlayer + 1)%4
+
+    def smartAction(self):
+        money = 0
+        for i in self.players[self.currentPlayer].hand:
+            if i < 22:
+                money += 1
+            elif i < 38:
+                money += 2
+            else:
+                money += 3
+        if money > 9:
+            rhtar = []
+            bstar = []
+            bftar = []
+            gdtar = []
+            hhtar = []
+            cftar = []
+            
+            for i in range(4):
+                if i != self.currentPlayer and self.players[i].alive:
+                    if len(self.players[i].hand) > 4 and len([i for i in [41,40] if i in self.players[self.currentPlayer].hand]) > 0:
+                        bftar.append(i)
+                    if len(self.players[i].hand) > 5 and len([i for i in [35,34,33] if i in self.players[self.currentPlayer].hand]) > 0:
+                        hhtar.append(i)
+                    if len(self.players[i].bank) > 4 and len([i for i in [39,38] if i in self.players[self.currentPlayer].hand]) > 0:
+                        gdtar.append(i)
+                    if len(self.players[i].bank) > 5 and len([i for i in [32,31,30] if i in self.players[self.currentPlayer].hand]) > 0:
+                        cftar.append(i)
+                    rednum = 0
+                    for j in self.players[i].hand:
+                        if j >= 38:
+                            rednum += 1
+                    if rednum != 0  and len([i for i in [42] if i in self.players[self.currentPlayer].hand]) > 0:
+                        bstar.append(i)
+                    if rednum > 1  and len([i for i in [37,36] if i in self.players[self.currentPlayer].hand]) > 0:
+                        rhtar.append(i)
+            if len(rhtar) > 0:
+                ind = rhtar[0]
+                self.players[ind].alive = False
+                for i in range(len(self.players[ind].hand)):
+                    self.discardPile.append(self.players[ind].hand.pop())
+                for i in range(len(self.players[ind].hand)):
+                    self.discardPile.append(self.players[ind].hand.pop())
+                if 37 in self.players[self.currentPlayer].hand:
+                    self.players[self.currentPlayer].hand.remove(37)
+                elif 36 in self.players[self.currentPlayer].hand:
+                    self.players[self.currentPlayer].hand.remove(36)
+                debt = 10
+                for i in range(len(self.players[self.currentPlayer].bank)):
+                    if debt > 0:
+                        if self.players[self.currentPlayer].bank[i] < 22:
+                            debt -= 1
+                        elif self.players[self.currentPlayer].bank[i] < 38:
+                            debt -= 2
+                        else:
+                            debt -= 3
+            elif len(bstar) > 0:
+                ind = bstar[0]
+                self.players[ind].alive = False
+                for i in range(len(self.players[ind].hand)):
+                    self.discardPile.append(self.players[ind].hand.pop())
+                for i in range(len(self.players[ind].hand)):
+                    self.discardPile.append(self.players[ind].hand.pop())
+                if 42 in self.players[self.currentPlayer].hand:
+                    self.players[self.currentPlayer].hand.remove(42)
+                debt = 10
+                for i in range(len(self.players[self.currentPlayer].bank)):
+                    if debt > 0:
+                        if self.players[self.currentPlayer].bank[i] < 22:
+                            debt -= 1
+                        elif self.players[self.currentPlayer].bank[i] < 38:
+                            debt -= 2
+                        else:
+                            debt -= 3
+            elif len(bftar) > 0:
+                ind = bftar[0]
+                self.players[ind].alive = False
+                for i in range(len(self.players[ind].hand)):
+                    self.discardPile.append(self.players[ind].hand.pop())
+                for i in range(len(self.players[ind].hand)):
+                    self.discardPile.append(self.players[ind].hand.pop())
+                if 41 in self.players[self.currentPlayer].hand:
+                    self.players[self.currentPlayer].hand.remove(41)
+                elif 40 in self.players[self.currentPlayer].hand:
+                    self.players[self.currentPlayer].hand.remove(40)
+                debt = 10
+                for i in range(len(self.players[self.currentPlayer].bank)):
+                    if debt > 0:
+                        if self.players[self.currentPlayer].bank[i] < 22:
+                            debt -= 1
+                        elif self.players[self.currentPlayer].bank[i] < 38:
+                            debt -= 2
+                        else:
+                            debt -= 3
+            elif len(gdtar) > 0:
+                ind = gdtar[0]
+                self.players[ind].alive = False
+                for i in range(len(self.players[ind].hand)):
+                    self.discardPile.append(self.players[ind].hand.pop())
+                for i in range(len(self.players[ind].hand)):
+                    self.discardPile.append(self.players[ind].hand.pop())
+                if 39 in self.players[self.currentPlayer].hand:
+                    self.players[self.currentPlayer].hand.remove(39)
+                elif 38 in self.players[self.currentPlayer].hand:
+                    self.players[self.currentPlayer].hand.remove(38)
+                debt = 10
+                for i in range(len(self.players[self.currentPlayer].bank)):
+                    if debt > 0:
+                        if self.players[self.currentPlayer].bank[i] < 22:
+                            debt -= 1
+                        elif self.players[self.currentPlayer].bank[i] < 38:
+                            debt -= 2
+                        else:
+                            debt -= 3
+            elif len(hhtar) > 0:
+                ind = hhtar[0]
+                self.players[ind].alive = False
+                for i in range(len(self.players[ind].hand)):
+                    self.discardPile.append(self.players[ind].hand.pop())
+                for i in range(len(self.players[ind].hand)):
+                    self.discardPile.append(self.players[ind].hand.pop())
+                if 35 in self.players[self.currentPlayer].hand:
+                    self.players[self.currentPlayer].hand.remove(35)
+                elif 34 in self.players[self.currentPlayer].hand:
+                    self.players[self.currentPlayer].hand.remove(34)
+                elif 33 in self.players[self.currentPlayer].hand:
+                    self.players[self.currentPlayer].hand.remove(33)
+                debt = 10
+                for i in range(len(self.players[self.currentPlayer].bank)):
+                    if debt > 0:
+                        if self.players[self.currentPlayer].bank[i] < 22:
+                            debt -= 1
+                        elif self.players[self.currentPlayer].bank[i] < 38:
+                            debt -= 2
+                        else:
+                            debt -= 3
+            elif len(cftar) > 0:
+                ind = cftar[0]
+                self.players[ind].alive = False
+                for i in range(len(self.players[ind].hand)):
+                    self.discardPile.append(self.players[ind].hand.pop())
+                for i in range(len(self.players[ind].hand)):
+                    self.discardPile.append(self.players[ind].hand.pop())
+                if 32 in self.players[self.currentPlayer].hand:
+                    self.players[self.currentPlayer].hand.remove(32)
+                elif 31 in self.players[self.currentPlayer].hand:
+                    self.players[self.currentPlayer].hand.remove(31)
+                elif 30 in self.players[self.currentPlayer].hand:
+                    self.players[self.currentPlayer].hand.remove(30)
+                debt = 10
+                for i in range(len(self.players[self.currentPlayer].bank)):
+                    if debt > 0:
+                        if self.players[self.currentPlayer].bank[i] < 22:
+                            debt -= 1
+                        elif self.players[self.currentPlayer].bank[i] < 38:
+                            debt -= 2
+                        else:
+                            debt -= 3
+            elif len(self.drawPile) == 1:
+                possibles = []
+                for i in range(len(self.players[self.currentPlayer].hand)):
+                    if i < 30 or i > 43:
+                        possibles.append(i)
+                possibles.sort()
+                if len(possibles) > 0:
+                    self.players[self.currentPlayer].bank.append(self.players[self.currentPlayer].hand.pop(possibles[-1]))
+                elif len(self.players[self.currentPlayer].hand) > 0:
+                    self.players[self.currentPlayer].hand.pop()
+                else:
+                    self.players[self.currentPlayer].hand.append(self.drawPile.pop())
+            else:
+                self.players[self.currentPlayer].hand.append(self.drawPile.pop())
+
+        else:
+            if self.drawPile[-1] > 22:
+                self.players[self.currentPlayer].hand.append(self.drawPile.pop())
+            else:
+                possibles = []
+                for i in range(len(self.players[self.currentPlayer].hand)):
+                    if i < 30 or i > 43:
+                        possibles.append(i)
+                possibles.sort()
+                if len(possibles) > 0:
+                    self.players[self.currentPlayer].bank.append(self.players[self.currentPlayer].hand.pop(possibles[-1]))
+                else:
+                    self.players[self.currentPlayer].hand.append(self.drawPile.pop())
+
+        if len(self.drawPile) == 0:
+            self.players[self.currentPlayer].alive = False
+            for i in range(len(self.players[self.currentPlayer].hand)):
+                self.discardPile.append(self.players[self.currentPlayer].hand.pop())
+            for i in range(len(self.players[self.currentPlayer].hand)):
+                self.discardPile.append(self.players[self.currentPlayer].hand.pop())
+            for i in range(len(self.discardPile)):
+                self.drawPile.append(self.discardPile.pop(random.randint(0,len(self.discardPile)-1)))
+            self.actions = -1
+            self.currentPlayer = (self.currentPlayer + 1)%4
+        self.actions += 1
+        if self.actions > 2:
+            self.actions = 0
+            self.currentPlayer = (self.currentPlayer + 1)%4
+        numplaye = 0
+        for i in range(4):
+            if self.players[i].alive:
+                numplaye += 1
+        while self.players[self.currentPlayer].alive == False and numplaye > 1:
+            self.currentPlayer = (self.currentPlayer + 1)%4
+
+    def recurseAction(self, depth):
+        money = 0
+        reds = False
+        for i in self.players[self.currentPlayer].hand:
+            if i < 22:
+                money += 1
+            elif i < 38:
+                money += 2
+            else:
+                reds = True
+                money += 3
+        if depth == 0:
+            heuristic = 0
+            if not self.players[0].alive:
+                heuristic -= 10000
+            if len(self.players[0].hand) > 4:
+                heuristic -= 100
+            if len(self.players[0].bank) > 4:
+                heuristic -= 100
+            if reds:
+                heuristic -= 100
+            for i in range(4):
+                if not self.players[i].alive:
+                    heuristic += 100
+            if money > 9:
+                heuristic += 50
+            return [heuristic,self]
+        else:
+            tempheur = -100000
+            if money > 9:
+                rhtar = []
+                bstar = []
+                bftar = []
+                gdtar = []
+                hhtar = []
+                cftar = []
+                
+                for i in range(4):
+                    if i != self.currentPlayer and self.players[i].alive:
+                        if len(self.players[i].hand) > 4 and len([i for i in [41,40] if i in self.players[self.currentPlayer].hand]) > 0:
+                            bftar.append(i)
+                        if len(self.players[i].hand) > 5 and len([i for i in [35,34,33] if i in self.players[self.currentPlayer].hand]) > 0:
+                            hhtar.append(i)
+                        if len(self.players[i].bank) > 4 and len([i for i in [39,38] if i in self.players[self.currentPlayer].hand]) > 0:
+                            gdtar.append(i)
+                        if len(self.players[i].bank) > 5 and len([i for i in [32,31,30] if i in self.players[self.currentPlayer].hand]) > 0:
+                            cftar.append(i)
+                        rednum = 0
+                        for j in self.players[i].hand:
+                            if j >= 38:
+                                rednum += 1
+                        if rednum != 0  and len([i for i in [42] if i in self.players[self.currentPlayer].hand]) > 0:
+                            bstar.append(i)
+                        if rednum > 1  and len([i for i in [37,36] if i in self.players[self.currentPlayer].hand]) > 0:
+                            rhtar.append(i)
+                
+                if len(rhtar) + len(bstar) + len(bftar) + len(gdtar) + len(hhtar) + len(cftar) > 0:
+                    temp = out_data(in_data(self))
+                    if len(rhtar) > 0:
+                        ind = rhtar[0]
+                        temp.players[ind].alive = False
+                        for i in range(len(temp.players[ind].hand)):
+                            temp.discardPile.append(temp.players[ind].hand.pop())
+                        for i in range(len(temp.players[ind].hand)):
+                            temp.discardPile.append(temp.players[ind].hand.pop())
+                        if 37 in temp.players[temp.currentPlayer].hand:
+                            temp.players[temp.currentPlayer].hand.remove(37)
+                        elif 36 in temp.players[temp.currentPlayer].hand:
+                            temp.players[temp.currentPlayer].hand.remove(36)
+                        debt = 10
+                        for i in range(len(temp.players[temp.currentPlayer].bank)):
+                            if debt > 0:
+                                if temp.players[temp.currentPlayer].bank[i] < 22:
+                                    debt -= 1
+                                elif temp.players[temp.currentPlayer].bank[i] < 38:
+                                    debt -= 2
+                                else:
+                                    debt -= 3
+                    elif len(bstar) > 0:
+                        ind = bstar[0]
+                        temp.players[ind].alive = False
+                        for i in range(len(temp.players[ind].hand)):
+                            temp.discardPile.append(temp.players[ind].hand.pop())
+                        for i in range(len(temp.players[ind].hand)):
+                            temp.discardPile.append(temp.players[ind].hand.pop())
+                        if 42 in temp.players[temp.currentPlayer].hand:
+                            temp.players[temp.currentPlayer].hand.remove(42)
+                        debt = 10
+                        for i in range(len(temp.players[temp.currentPlayer].bank)):
+                            if debt > 0:
+                                if temp.players[temp.currentPlayer].bank[i] < 22:
+                                    debt -= 1
+                                elif temp.players[temp.currentPlayer].bank[i] < 38:
+                                    debt -= 2
+                                else:
+                                    debt -= 3
+                    elif len(bftar) > 0:
+                        ind = bftar[0]
+                        temp.players[ind].alive = False
+                        for i in range(len(temp.players[ind].hand)):
+                            temp.discardPile.append(temp.players[ind].hand.pop())
+                        for i in range(len(temp.players[ind].hand)):
+                            temp.discardPile.append(temp.players[ind].hand.pop())
+                        if 41 in temp.players[temp.currentPlayer].hand:
+                            temp.players[temp.currentPlayer].hand.remove(41)
+                        elif 40 in temp.players[temp.currentPlayer].hand:
+                            temp.players[temp.currentPlayer].hand.remove(40)
+                        debt = 10
+                        for i in range(len(temp.players[temp.currentPlayer].bank)):
+                            if debt > 0:
+                                if temp.players[temp.currentPlayer].bank[i] < 22:
+                                    debt -= 1
+                                elif temp.players[temp.currentPlayer].bank[i] < 38:
+                                    debt -= 2
+                                else:
+                                    debt -= 3
+                    elif len(gdtar) > 0:
+                        ind = gdtar[0]
+                        temp.players[ind].alive = False
+                        for i in range(len(temp.players[ind].hand)):
+                            temp.discardPile.append(temp.players[ind].hand.pop())
+                        for i in range(len(temp.players[ind].hand)):
+                            temp.discardPile.append(temp.players[ind].hand.pop())
+                        if 39 in temp.players[temp.currentPlayer].hand:
+                            temp.players[temp.currentPlayer].hand.remove(39)
+                        elif 38 in temp.players[temp.currentPlayer].hand:
+                            temp.players[temp.currentPlayer].hand.remove(38)
+                        debt = 10
+                        for i in range(len(temp.players[temp.currentPlayer].bank)):
+                            if debt > 0:
+                                if temp.players[temp.currentPlayer].bank[i] < 22:
+                                    debt -= 1
+                                elif temp.players[temp.currentPlayer].bank[i] < 38:
+                                    debt -= 2
+                                else:
+                                    debt -= 3
+                    elif len(hhtar) > 0:
+                        ind = hhtar[0]
+                        temp.players[ind].alive = False
+                        for i in range(len(temp.players[ind].hand)):
+                            temp.discardPile.append(temp.players[ind].hand.pop())
+                        for i in range(len(temp.players[ind].hand)):
+                            temp.discardPile.append(temp.players[ind].hand.pop())
+                        if 35 in temp.players[temp.currentPlayer].hand:
+                            temp.players[temp.currentPlayer].hand.remove(35)
+                        elif 34 in temp.players[temp.currentPlayer].hand:
+                            temp.players[temp.currentPlayer].hand.remove(34)
+                        elif 33 in temp.players[temp.currentPlayer].hand:
+                            temp.players[temp.currentPlayer].hand.remove(33)
+                        debt = 10
+                        for i in range(len(temp.players[temp.currentPlayer].bank)):
+                            if debt > 0:
+                                if temp.players[temp.currentPlayer].bank[i] < 22:
+                                    debt -= 1
+                                elif temp.players[temp.currentPlayer].bank[i] < 38:
+                                    debt -= 2
+                                else:
+                                    debt -= 3
+                    elif len(cftar) > 0:
+                        ind = cftar[0]
+                        temp.players[ind].alive = False
+                        for i in range(len(temp.players[ind].hand)):
+                            temp.discardPile.append(temp.players[ind].hand.pop())
+                        for i in range(len(temp.players[ind].hand)):
+                            temp.discardPile.append(temp.players[ind].hand.pop())
+                        if 32 in temp.players[temp.currentPlayer].hand:
+                            temp.players[temp.currentPlayer].hand.remove(32)
+                        elif 31 in temp.players[temp.currentPlayer].hand:
+                            temp.players[temp.currentPlayer].hand.remove(31)
+                        elif 30 in temp.players[temp.currentPlayer].hand:
+                            temp.players[temp.currentPlayer].hand.remove(30)
+                        debt = 10
+                        for i in range(len(temp.players[temp.currentPlayer].bank)):
+                            if debt > 0:
+                                if temp.players[temp.currentPlayer].bank[i] < 22:
+                                    debt -= 1
+                                elif temp.players[temp.currentPlayer].bank[i] < 38:
+                                    debt -= 2
+                                else:
+                                    debt -= 3
+                    temp.actions += 1
+                    if temp.actions > 2:
+                        temp.actions = 0
+                        temp.currentPlayer = (temp.currentPlayer + 1)%4
+                    numplaye = 0
+                    for i in range(4):
+                        if temp.players[i].alive:
+                            numplaye += 1
+                    while temp.players[temp.currentPlayer].alive == False and numplaye > 1:
+                        temp.currentPlayer = (temp.currentPlayer + 1)%4
+                    tempheur = temp.recurseAction(depth-1)[0]
+                    
+                
+                
+            newtemp = out_data(in_data(self))
+            newtemp.players[newtemp.currentPlayer].hand.append(newtemp.drawPile.pop())
+            if len(newtemp.drawPile) == 0:
+                newtemp.players[newtemp.currentPlayer].alive = False
+                for i in range(len(newtemp.players[newtemp.currentPlayer].hand)):
+                    newtemp.discardPile.append(newtemp.players[newtemp.currentPlayer].hand.pop())
+                for i in range(len(newtemp.players[newtemp.currentPlayer].hand)):
+                    newtemp.discardPile.append(newtemp.players[newtemp.currentPlayer].hand.pop())
+                for i in range(len(newtemp.discardPile)):
+                    newtemp.drawPile.append(newtemp.discardPile.pop(random.randint(0,len(newtemp.discardPile)-1)))
+                newtemp.actions = -1
+                newtemp.currentPlayer = (newtemp.currentPlayer + 1)%4
+            newtemp.actions += 1
+            if newtemp.actions > 2:
+                newtemp.actions = 0
+                newtemp.currentPlayer = (newtemp.currentPlayer + 1)%4
+            numplaye = 0
+            for i in range(4):
+                if newtemp.players[i].alive:
+                    numplaye += 1
+            while newtemp.players[newtemp.currentPlayer].alive == False and numplaye > 1:
+                newtemp.currentPlayer = (newtemp.currentPlayer + 1)%4
+            newtempheur = newtemp.recurseAction(depth-1)[0]
+            if newtempheur > tempheur:
+                temp = out_data(in_data(newtemp))
+                tempheur = newtempheur
+
+            for i in range(len(self.players[self.currentPlayer].hand)):
+                newtemp = out_data(in_data(self))
+                # print(in_data(newtemp))
+                # print(i)
+                newtemp.players[newtemp.currentPlayer].bank.append(newtemp.players[newtemp.currentPlayer].hand.pop(i))
+                newtemp.actions += 1
+                if newtemp.actions > 2:
+                    newtemp.actions = 0
+                    newtemp.currentPlayer = (newtemp.currentPlayer + 1)%4
+                numplaye = 0
+                for i in range(4):
+                    if newtemp.players[i].alive:
+                        numplaye += 1
+                while newtemp.players[newtemp.currentPlayer].alive == False and numplaye > 1:
+                    newtemp.currentPlayer = (newtemp.currentPlayer + 1)%4
+                newtempheur = newtemp.recurseAction(depth-1)[0]
+                if newtempheur > tempheur:
+                    temp = out_data(in_data(newtemp))
+                    tempheur = newtempheur
+            temp
+            return [tempheur,temp]
+
+                
+
     def play(self, brain):
         
         fit = 0
@@ -1144,45 +1788,91 @@ class Game:
 
 game = Game()
 
-def in_data():
+def out_data(obj):
+    temp = Game()
+    temp.actions = obj["actions"]
+    temp.drawPile = obj["drawPile"]
+    temp.discardPile = obj["discardPile"]
+    temp.unusedMarks = obj["unusedMarks"]
+    temp.extraMark = obj["extraMark"]
+    temp.bounties = obj["bounties"]
+    temp.skips = obj["skips"]
+    temp.currentPlayer = obj["currentPlayer"]
+    temp.actions = obj["actions"]
+    for i in range(len(temp.players)):
+        temp.players[i].hand = obj["players"][i]["hand"]
+        temp.players[i].bank = obj["players"][i]["bank"]
+        temp.players[i].knowledge = obj["players"][i]["knowledge"]
+        temp.players[i].mark = obj["players"][i]["mark"]
+        temp.players[i].alive = obj["players"][i]["alive"]
+    return temp
+
+def in_data(temp):
     res = {
-        "actions": game.actions,
-        "drawPile": game.drawPile,
-        "discardPile": game.discardPile,
-        "unusedMarks": game.unusedMarks,
-        "extraMark": game.extraMark,
-        "bounties": game.bounties,
-        "skips": game.skips,
-        "currentPlayer": game.currentPlayer,
-        "actions": game.actions,
+        "actions": temp.actions,
+        "drawPile": temp.drawPile.copy(),
+        "discardPile": temp.discardPile.copy(),
+        "unusedMarks": temp.unusedMarks.copy(),
+        "extraMark": temp.extraMark,
+        "bounties": temp.bounties.copy(),
+        "skips": temp.skips.copy(),
+        "currentPlayer": temp.currentPlayer,
+        "actions": temp.actions,
         "players": []
     }
-    for i in game.players:
+    for i in temp.players:
         res["players"].append({
-            "hand": i.hand,
-            "bank": i.bank,
+            "hand": i.hand.copy(),
+            "bank": i.bank.copy(),
             "knowledge": i.knowledge,
             "mark": i.mark,
             "alive": i.alive
         })
     return res
 
-def out_data(obj):
-    game.actions = obj["actions"]
-    game.drawPile = obj["drawPile"]
-    game.discardPile = obj["discardPile"]
-    game.unusedMarks = obj["unusedMarks"]
-    game.extraMark = obj["extraMark"]
-    game.bounties = obj["bounties"]
-    game.skips = obj["skips"]
-    game.currentPlayer = obj["currentPlayer"]
-    game.actions = obj["actions"]
-    for i in range(len(game.players)):
-        game.players[i].hand = obj["players"][i]["hand"]
-        game.players[i].bank = obj["players"][i]["bank"]
-        game.players[i].knowledge = obj["players"][i]["knowledge"]
-        game.players[i].mark = obj["players"][i]["mark"]
-        game.players[i].alive = obj["players"][i]["alive"]
+wins = 0
+games = 100
+for p in range(games):
+    print(f"Game #{p}")
+    numplayers = 4
+    while numplayers > 1:
+        if game.currentPlayer == 0:
+            #game.randAction()
+            #game.smartAction()
+            game = out_data(in_data(game.recurseAction(1)[1]))
+        else:
+            game.randAction()
+        numplayersl = []
+        for i in range(4):
+            if game.players[i].alive:
+                numplayersl.append(i)
+        numplayers = len(numplayersl)
+    if numplayersl[0] == 0:
+        wins += 1
+    game.restart()
+
+print("wins", wins/games) 
+
+
+
+def findBest(g, depth):
+    money = 0
+    for i in g["players"][g["currentPlayer"]]["bank"]:
+        if i < 22:
+            money += 1
+        elif i < 38:
+            money += 2
+        else:
+            money += 3
+    #draw
+    drawg = g.copy()
+    drawg["players"][drawg["currentPlayer"]]["hand"].append(drawg["drawPile"].pop())
+    # if len(drawg["drawPile"]) == 0:
+    #     for i in 
+
+
+
+
 
 def end_action():
     game.actions += 1
@@ -1197,53 +1887,53 @@ def end_action():
             i = max(0,i-1)
         game.actions = 0
 
-from flask import Flask, render_template, request, redirect, url_for
-import database
+# from flask import Flask, render_template, request, redirect, url_for
+# import database
 
-database.update_data(in_data())
+# database.update_data(in_data())
 
-app = Flask(__name__)
+# app = Flask(__name__)
 
-@app.route("/")
-def get_game():
-    g = database.retrieve_data()
-    g.pop("_id")
-    out_data(g)
-    print(game.possible())
-    return g
+# @app.route("/")
+# def get_game():
+#     g = database.retrieve_data()
+#     g.pop("_id")
+#     out_data(g)
+#     print(game.possible())
+#     return g
 
-@app.route("/draw")
-def draw():
-    g = database.retrieve_data()
-    out_data(g)
-    v = [1]
-    v.extend([0]*216)
-    game.action(v)
-    end_action()
-    g = in_data()
-    database.update_data(g)
-    return redirect(url_for('get_game'))
+# @app.route("/draw")
+# def draw():
+#     g = database.retrieve_data()
+#     out_data(g)
+#     v = [1]
+#     v.extend([0]*216)
+#     game.action(v)
+#     end_action()
+#     g = in_data()
+#     database.update_data(g)
+#     return redirect(url_for('get_game'))
 
-@app.route("/bank/<id>")
-def bank(id):
-    g = database.retrieve_data()
-    out_data(g)
-    v = [0,1]
-    v.extend([0]*int(id))
-    v.extend([1])
-    v.extend([0]*(214-int(id)))
-    good = True
-    check = game.possible()
-    for i in range(len(check)):
-        if check[i]*v[i] != v[i]:
-            good = False
-            print("bad move")
-    if good:
-        game.action(v)
-        end_action()
-        g = in_data()
-        database.update_data(g)
-    return redirect(url_for('get_game'))
+# @app.route("/bank/<id>")
+# def bank(id):
+#     g = database.retrieve_data()
+#     out_data(g)
+#     v = [0,1]
+#     v.extend([0]*int(id))
+#     v.extend([1])
+#     v.extend([0]*(214-int(id)))
+#     good = True
+#     check = game.possible()
+#     for i in range(len(check)):
+#         if check[i]*v[i] != v[i]:
+#             good = False
+#             print("bad move")
+#     if good:
+#         game.action(v)
+#         end_action()
+#         g = in_data()
+#         database.update_data(g)
+#     return redirect(url_for('get_game'))
 
-if __name__ == "__main__":
-    app.run(debug=True)
+# if __name__ == "__main__":
+#     app.run(debug=True)
