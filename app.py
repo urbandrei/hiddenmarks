@@ -1831,7 +1831,7 @@ def in_data(temp):
     return res
 
 wins = 0
-games = 100
+games = 10
 for p in range(games):
     print(f"Game #{p}")
     numplayers = 4
@@ -1839,7 +1839,7 @@ for p in range(games):
         if game.currentPlayer == 0:
             #game.randAction()
             #game.smartAction()
-            game = out_data(in_data(game.recurseAction(1)[1]))
+            game = out_data(in_data(game.recurseAction(5)[1]))
         else:
             game.randAction()
         numplayersl = []
