@@ -1522,23 +1522,24 @@ class Game:
                 reds = True
                 money += 3
         if depth == 0:
-            heuristic = 0
+            # evaluation function
+            utility = 0
             if not self.players[0].alive:
-                heuristic -= 10000
+                utility -= 10000
             if len(self.players[0].hand) > 4:
-                heuristic -= 100
+                utility -= 100
             if len(self.players[0].bank) > 4:
-                heuristic -= 100
+                utility -= 100
             if reds:
-                heuristic -= 100
+                utility -= 100
             for i in range(4):
                 if not self.players[i].alive:
-                    heuristic += 100
+                    utility += 100
             if money > 9:
-                heuristic += 50
-            return [heuristic,self]
+                utility += 50
+            return [utility,self]
         else:
-            tempheur = -100000
+            temputil = -100000
             if money > 9:
                 rhtar = []
                 bstar = []
@@ -1700,7 +1701,7 @@ class Game:
                             numplaye += 1
                     while temp.players[temp.currentPlayer].alive == False and numplaye > 1:
                         temp.currentPlayer = (temp.currentPlayer + 1)%4
-                    tempheur = temp.recurseAction(depth-1)[0]
+                    temputil = temp.recurseAction(depth-1)[0]
                     
                 
                 
@@ -1726,10 +1727,10 @@ class Game:
                     numplaye += 1
             while newtemp.players[newtemp.currentPlayer].alive == False and numplaye > 1:
                 newtemp.currentPlayer = (newtemp.currentPlayer + 1)%4
-            newtempheur = newtemp.recurseAction(depth-1)[0]
-            if newtempheur > tempheur:
+            newtemputil = newtemp.recurseAction(depth-1)[0]
+            if newtemputil > temputil:
                 temp = out_data(in_data(newtemp))
-                tempheur = newtempheur
+                temputil = newtemputil
 
             for i in range(len(self.players[self.currentPlayer].hand)):
                 newtemp = out_data(in_data(self))
@@ -1746,12 +1747,12 @@ class Game:
                         numplaye += 1
                 while newtemp.players[newtemp.currentPlayer].alive == False and numplaye > 1:
                     newtemp.currentPlayer = (newtemp.currentPlayer + 1)%4
-                newtempheur = newtemp.recurseAction(depth-1)[0]
-                if newtempheur > tempheur:
+                newtemputil = newtemp.recurseAction(depth-1)[0]
+                if newtemputil > temputil:
                     temp = out_data(in_data(newtemp))
-                    tempheur = newtempheur
+                    temputil = newtemputil
             temp
-            return [tempheur,temp]
+            return [temputil,temp]
 
                 
 
