@@ -1,0 +1,108 @@
+.home-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.home-content {
+  max-width: 600px;
+  width: 100%;
+  text-align: center;
+}
+
+.game-title {
+  font-size: 4rem;
+  font-weight: 900;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 4px;
+}
+
+.game-subtitle {
+  font-size: 1.2rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 40px;
+}
+
+.player-setup,
+.session-setup {
+  margin-bottom: 32px;
+}
+
+.button-group {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.button-group .btn {
+  flex: 1;
+}
+
+.public-sessions {
+  margin-top: 48px;
+  padding-top: 32px;
+  border-top: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+.public-sessions h2 {
+  font-size: 1.5rem;
+  margin-bottom: 20px;
+  color: #00d9ff;
+}
+
+.sessions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.session-card {
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all 0.3s ease;
+}
+
+.session-card:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: #4facfe;
+}
+
+.session-info h3 {
+  font-size: 1.1rem;
+  margin-bottom: 4px;
+}
+
+.session-info p {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.9rem;
+}
+
+.rules-link {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.rules-link a {
+  color: #4facfe;
+  text-decoration: none;
+  font-size: 1rem;
+  transition: color 0.3s ease;
+}
+
+.rules-link a:hover {
+  color: #00d9ff;
+  text-decoration: underline;
+}
