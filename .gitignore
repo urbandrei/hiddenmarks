@@ -5,3 +5,7 @@ dist/
 *.log
 .DS_Store
 client/build/
+
+# Docker
+docker-compose.override.yml
+.docker/

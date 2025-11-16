@@ -27,13 +27,75 @@ Hidden Marks is a strategic card game for 4 players where:
 
 ## Installation
 
-### Prerequisites
+### 🐳 Quick Start with Docker (Recommended)
 
+The easiest way to run Hidden Marks is using Docker. Everything is containerized and runs with a single command!
+
+#### Prerequisites
+- Docker Desktop (includes Docker & Docker Compose)
+
+#### Setup
+
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd hiddenmarks
+   ```
+
+2. **Start the application**
+   ```bash
+   docker-compose up -d
+   ```
+
+   Or using the Makefile:
+   ```bash
+   make up
+   ```
+
+3. **Access the game**
+   - Frontend: `http://localhost:3000`
+   - Backend API: `http://localhost:5000`
+   - PostgreSQL: `localhost:5432`
+
+That's it! The database is automatically created and initialized with the schema.
+
+#### Useful Docker Commands
+
+```bash
+# View logs
+make logs              # All services
+make logs-server       # Server only
+make logs-client       # Client only
+
+# Stop services
+make down
+
+# Restart services
+make restart
+
+# Clean everything (remove containers & volumes)
+make clean
+
+# Access container shells
+make shell-server      # Backend shell
+make shell-db          # PostgreSQL shell
+
+# View service status
+make status
+```
+
+---
+
+### 💻 Manual Installation (Without Docker)
+
+If you prefer to run services locally without Docker:
+
+#### Prerequisites
 - Node.js (v16 or higher)
 - PostgreSQL (v12 or higher)
 - npm or yarn
 
-### Setup
+#### Setup
 
 1. **Clone the repository**
    ```bash
