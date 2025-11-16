@@ -1,0 +1,203 @@
+.game-container {
+  min-height: 100vh;
+  padding: 20px;
+}
+
+.game-board {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.game-header {
+  text-align: center;
+  margin-bottom: 24px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 16px;
+  padding: 20px;
+}
+
+.game-header h1 {
+  font-size: 2rem;
+  margin-bottom: 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.game-info {
+  display: flex;
+  justify-content: center;
+  gap: 32px;
+  flex-wrap: wrap;
+}
+
+.turn-info,
+.actions-info,
+.draw-pile-info {
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.your-turn {
+  color: #43e97b;
+  font-weight: bold;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.opponents-area {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.opponent {
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 16px;
+  transition: all 0.3s ease;
+}
+
+.opponent.dead {
+  opacity: 0.5;
+  border-color: #f5576c;
+}
+
+.opponent-info h3 {
+  color: #00d9ff;
+  margin-bottom: 8px;
+}
+
+.player-status {
+  font-size: 0.9rem;
+  margin-bottom: 4px;
+}
+
+.revealed-mark {
+  font-size: 0.85rem;
+  color: #f5576c;
+}
+
+.opponent-cards {
+  margin-top: 12px;
+}
+
+.card-info {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 4px 0;
+}
+
+.center-area {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 24px;
+}
+
+.bounties-section h3 {
+  color: #00d9ff;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.bounties-list {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+
+.bounty-card {
+  background: rgba(245, 87, 108, 0.2);
+  border: 2px solid #f5576c;
+  border-radius: 12px;
+  padding: 16px;
+  min-width: 120px;
+  text-align: center;
+}
+
+.bounty-suit {
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin-bottom: 8px;
+}
+
+.bounty-turns {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.no-bounties {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.3);
+  font-style: italic;
+  padding: 24px;
+}
+
+.action-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.my-area {
+  background: rgba(67, 233, 123, 0.05);
+  border: 2px solid rgba(67, 233, 123, 0.2);
+  border-radius: 16px;
+  padding: 24px;
+}
+
+.player-stats {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.player-stats h2 {
+  color: #43e97b;
+  margin-bottom: 8px;
+}
+
+.stats {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.my-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.instructions {
+  text-align: center;
+  margin-top: 16px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+@media (max-width: 768px) {
+  .my-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .game-info {
+    flex-direction: column;
+    gap: 12px;
+  }
+}

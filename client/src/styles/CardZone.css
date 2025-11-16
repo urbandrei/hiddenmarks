@@ -1,0 +1,62 @@
+.card-zone {
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 16px;
+  margin: 8px;
+  transition: all 0.3s ease;
+  min-height: 220px;
+}
+
+.card-zone.current-player {
+  border-color: #43e97b;
+  box-shadow: 0 0 20px rgba(67, 233, 123, 0.3);
+}
+
+.card-zone.drop-over {
+  background: rgba(67, 233, 123, 0.1);
+  border-color: #43e97b;
+  transform: scale(1.02);
+}
+
+.zone-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.zone-header h3 {
+  font-size: 1.1rem;
+  color: #00d9ff;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.card-count {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.1);
+  padding: 4px 12px;
+  border-radius: 12px;
+}
+
+.zone-content {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 168px;
+  align-items: flex-start;
+}
+
+.empty-zone {
+  width: 100%;
+  height: 168px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.3);
+  font-style: italic;
+}
