@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Card Table</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { overflow: hidden; }
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+        }
+    }
+    </script>
+    <script type="module">
+        import * as THREE from 'three';
+
+        const CARD_WIDTH = 2.5;
+        const CARD_HEIGHT = 3.5;
+        const CARD_DEPTH = 0.02;
+
+        // Card definitions from sprite sheet (10 cols x 6 rows)
+        // Back indices: 54=red, 55=blue, 56=white, 57=mark
+        const CARD_DEFS = [
+            // White back (56)
+            { index: 1, name: 'body swap', back: 56 },
+            { index: 3, name: 'alter ego', back: 56 },
+            { index: 5, name: 'greed', back: 56 },
+            { index: 7, name: 'tied up', back: 56 },
+            { index: 9, name: 'revenge', back: 56 },
+            { index: 11, name: 'insomnia', back: 56 },
+            { index: 13, name: 'blind spot', back: 56 },
+            { index: 15, name: 'trade off', back: 56 },
+            { index: 19, name: 'unmasked', back: 56 },
+            // Blue back (55)
+            { index: 23, name: 'upheaval', back: 55 },
+            { index: 25, name: 'arson', back: 55 },
+            { index: 27, name: 'snub', back: 55 },
+            { index: 31, name: 'red handed', back: 55 },
+            { index: 33, name: 'counterfeit', back: 55 },
+            { index: 36, name: 'heavy hand', back: 55 },
+            // Red back (54)
+            { index: 39, name: 'clubs bounty', back: 54 },
+            { index: 40, name: 'hearts bounty', back: 54 },
+            { index: 41, name: 'spades bounty', back: 54 },
+            { index: 42, name: 'diamonds bounty', back: 54 },
+            { index: 43, name: 'jokers bounty', back: 54 },
+            { index: 44, name: 'backfire', back: 54 },
+            { index: 46, name: 'bloodshot', back: 54 },
+            { index: 47, name: 'gold digger', back: 54 },
+            // Mark back (57)
+            { index: 49, name: 'hearts mark', back: 57 },
+            { index: 50, name: 'spades mark', back: 57 },
+            { index: 51, name: 'clubs mark', back: 57 },
+            { index: 52, name: 'diamonds mark', back: 57 },
+            { index: 53, name: 'jokers mark', back: 57 },
+        ];
+        const SPRITE_COLS = 10;
+        const SPRITE_ROWS = 6;
+
+        const GAP = 0.5;
+        const ZONE_LENGTH = 15;
+        const MARK_WIDTH = CARD_WIDTH;
+        const EFFECT_WIDTH = CARD_WIDTH * 1.5;
+        const BANK_WIDTH = ZONE_LENGTH - MARK_WIDTH - EFFECT_WIDTH - GAP * 2;
+        const zones = [
+            // Player hands (edge zones - half off screen, stretched along edge)
+            { id: 'p3-hand', type: 'hand', player: 3, x: 0, z: -10, rotation: 0, width: ZONE_LENGTH, height: CARD_HEIGHT, spreadAxis: 'x', cards: [] },
+            { id: 'p1-hand', type: 'hand', player: 1, x: 0, z: 10, rotation: 0, width: ZONE_LENGTH, height: CARD_HEIGHT, spreadAxis: 'x', cards: [] },
+            { id: 'p4-hand', type: 'hand', player: 4, x: -15, z: 0, rotation: Math.PI/2, width: ZONE_LENGTH, height: CARD_HEIGHT, spreadAxis: 'z', cards: [] },
+            { id: 'p2-hand', type: 'hand', player: 2, x: 15, z: 0, rotation: Math.PI/2, width: ZONE_LENGTH, height: CARD_HEIGHT, spreadAxis: 'z', cards: [] },
+            // Player banks (inner zones - overlapped by hands, stretched along edge)
+            { id: 'p3-bank', type: 'bank', player: 3, x: 0, z: -10 + CARD_HEIGHT/2 + GAP + CARD_HEIGHT/2, rotation: 0, width: BANK_WIDTH, height: CARD_HEIGHT, spreadAxis: 'x', cards: [] },
+            { id: 'p1-bank', type: 'bank', player: 1, x: 0, z: 10 - CARD_HEIGHT/2 - GAP - CARD_HEIGHT/2, rotation: 0, width: BANK_WIDTH, height: CARD_HEIGHT, spreadAxis: 'x', cards: [] },
+            { id: 'p4-bank', type: 'bank', player: 4, x: -15 + CARD_HEIGHT/2 + GAP + CARD_HEIGHT/2, z: 0, rotation: Math.PI/2, width: BANK_WIDTH, height: CARD_HEIGHT, spreadAxis: 'z', cards: [] },
+            { id: 'p2-bank', type: 'bank', player: 2, x: 15 - CARD_HEIGHT/2 - GAP - CARD_HEIGHT/2, z: 0, rotation: Math.PI/2, width: BANK_WIDTH, height: CARD_HEIGHT, spreadAxis: 'z', cards: [] },
+            // Player mark zones (left of bank when facing center)
+            { id: 'p3-mark', type: 'mark', player: 3, x: BANK_WIDTH/2 + GAP + MARK_WIDTH/2, z: -10 + CARD_HEIGHT/2 + GAP + CARD_HEIGHT/2, rotation: 0, width: MARK_WIDTH, height: CARD_HEIGHT, spreadAxis: 'x', cards: [] },
+            { id: 'p1-mark', type: 'mark', player: 1, x: -BANK_WIDTH/2 - GAP - MARK_WIDTH/2, z: 10 - CARD_HEIGHT/2 - GAP - CARD_HEIGHT/2, rotation: 0, width: MARK_WIDTH, height: CARD_HEIGHT, spreadAxis: 'x', cards: [] },
+            { id: 'p4-mark', type: 'mark', player: 4, x: -15 + CARD_HEIGHT/2 + GAP + CARD_HEIGHT/2, z: BANK_WIDTH/2 + GAP + MARK_WIDTH/2, rotation: Math.PI/2, width: MARK_WIDTH, height: CARD_HEIGHT, spreadAxis: 'z', cards: [] },
+            { id: 'p2-mark', type: 'mark', player: 2, x: 15 - CARD_HEIGHT/2 - GAP - CARD_HEIGHT/2, z: -BANK_WIDTH/2 - GAP - MARK_WIDTH/2, rotation: Math.PI/2, width: MARK_WIDTH, height: CARD_HEIGHT, spreadAxis: 'z', cards: [] },
+            // Player effect zones (right of bank when facing center)
+            { id: 'p3-effect', type: 'effect', player: 3, x: -BANK_WIDTH/2 - GAP - EFFECT_WIDTH/2, z: -10 + CARD_HEIGHT/2 + GAP + CARD_HEIGHT/2, rotation: 0, width: EFFECT_WIDTH, height: CARD_HEIGHT, spreadAxis: 'x', cards: [] },
+            { id: 'p1-effect', type: 'effect', player: 1, x: BANK_WIDTH/2 + GAP + EFFECT_WIDTH/2, z: 10 - CARD_HEIGHT/2 - GAP - CARD_HEIGHT/2, rotation: 0, width: EFFECT_WIDTH, height: CARD_HEIGHT, spreadAxis: 'x', cards: [] },
+            { id: 'p4-effect', type: 'effect', player: 4, x: -15 + CARD_HEIGHT/2 + GAP + CARD_HEIGHT/2, z: -BANK_WIDTH/2 - GAP - EFFECT_WIDTH/2, rotation: Math.PI/2, width: EFFECT_WIDTH, height: CARD_HEIGHT, spreadAxis: 'z', cards: [] },
+            { id: 'p2-effect', type: 'effect', player: 2, x: 15 - CARD_HEIGHT/2 - GAP - CARD_HEIGHT/2, z: BANK_WIDTH/2 + GAP + EFFECT_WIDTH/2, rotation: Math.PI/2, width: EFFECT_WIDTH, height: CARD_HEIGHT, spreadAxis: 'z', cards: [] },
+            // Center piles
+            { id: 'bounty', type: 'pile', player: null, x: -4 - ZONE_LENGTH/6 + CARD_WIDTH/2, z: 0, rotation: 0, width: ZONE_LENGTH/3, height: CARD_HEIGHT, spreadAxis: 'x', spreadDir: -1, cards: [] },
+            { id: 'draw', type: 'pile', player: null, x: 0, z: 0, rotation: 0, width: CARD_WIDTH, height: CARD_HEIGHT, spreadAxis: null, cards: [] },
+            { id: 'discard', type: 'pile', player: null, x: 4, z: 0, rotation: 0, width: CARD_WIDTH, height: CARD_HEIGHT, spreadAxis: null, cards: [] },
+        ];
+
+        // Player lookup (index 1-4)
+        const players = [
+            null,
+            { id: 1, hand: zones[1], bank: zones[5], mark: zones[9], effect: zones[13] },
+            { id: 2, hand: zones[3], bank: zones[7], mark: zones[11], effect: zones[15] },
+            { id: 3, hand: zones[0], bank: zones[4], mark: zones[8], effect: zones[12] },
+            { id: 4, hand: zones[2], bank: zones[6], mark: zones[10], effect: zones[14] },
+        ];
+
+        // Center pile references
+        const piles = {
+            bounty: zones[16],
+            draw: zones[17],
+            discard: zones[18],
+        };
+
+        let scene, camera, renderer, raycaster, mouse;
+        let cards = [];
+        let draggedCard = null;
+        let dragOffset = new THREE.Vector3();
+        let dragStartPos = new THREE.Vector3();
+        let tablePlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+        let animatingCards = [];
+
+        function easeInOut(t) {
+            return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+        }
+
+        function animateCardToZone(card, zone, targetY) {
+            // Remove any existing animation for this card
+            animatingCards = animatingCards.filter(a => a.card !== card);
+            animatingCards.push({
+                card,
+                startPos: card.position.clone(),
+                endPos: new THREE.Vector3(zone.x, targetY, zone.z),
+                startRot: card.rotation.y,
+                endRot: zone.rotation,
+                startTime: performance.now(),
+                duration: 300
+            });
+        }
+
+        function updateAnimations() {
+            const now = performance.now();
+            animatingCards = animatingCards.filter(anim => {
+                const elapsed = now - anim.startTime;
+                const t = Math.min(elapsed / anim.duration, 1);
+                const eased = easeInOut(t);
+
+                anim.card.position.lerpVectors(anim.startPos, anim.endPos, eased);
+                anim.card.rotation.y = anim.startRot + (anim.endRot - anim.startRot) * eased;
+
+                // Handle Z rotation for flip animation with arc motion
+                if (anim.startRotZ !== undefined) {
+                    anim.card.rotation.z = anim.startRotZ + (anim.endRotZ - anim.startRotZ) * eased;
+                    // Arc motion: lift up in middle, back down at end
+                    anim.card.position.y = anim.baseY + anim.liftHeight * Math.sin(t * Math.PI);
+                }
+
+                return t < 1;
+            });
+        }
+
+        function getCardPositionInZone(zone, index, total) {
+            const pos = { x: zone.x, y: index * CARD_DEPTH, z: zone.z };
+
+            if (!zone.spreadAxis || total <= 1) {
+                return pos;
+            }
+
+            const maxSpread = zone.width - CARD_WIDTH;
+            const spacing = Math.min(CARD_WIDTH * 0.8, maxSpread / (total - 1));
+            const totalWidth = spacing * (total - 1);
+            const startOffset = -totalWidth / 2;
+            const offset = startOffset + index * spacing;
+            const dir = zone.spreadDir || 1;
+
+            if (zone.spreadAxis === 'x') {
+                pos.x = zone.x + offset * dir;
+            } else {
+                pos.z = zone.z + offset * dir;
+            }
+
+            return pos;
+        }
+
+        function layoutCardsInZone(zone, animate = true) {
+            const count = zone.cards.length;
+            zone.cards.forEach((card, i) => {
+                const pos = getCardPositionInZone(zone, i, count);
+                if (animate) {
+                    animatingCards = animatingCards.filter(a => a.card !== card);
+                    animatingCards.push({
+                        card,
+                        startPos: card.position.clone(),
+                        endPos: new THREE.Vector3(pos.x, pos.y, pos.z),
+                        startRot: card.rotation.y,
+                        endRot: zone.rotation,
+                        startTime: performance.now(),
+                        duration: 300
+                    });
+                } else {
+                    card.position.set(pos.x, pos.y, pos.z);
+                    card.rotation.y = zone.rotation;
+                }
+            });
+        }
+
+        async function init() {
+            // Load sprite sheet first
+            await loadSpriteSheet();
+
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x1a1a2e);
+
+            const aspect = 1920 / 1080;
+            const frustumSize = 20;
+            camera = new THREE.OrthographicCamera(
+                -frustumSize * aspect / 2, frustumSize * aspect / 2,
+                frustumSize / 2, -frustumSize / 2,
+                0.1, 100
+            );
+            camera.position.set(0, 20, 0);
+            camera.lookAt(0, 0, 0);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(5, 10, 5);
+            scene.add(directionalLight);
+
+            const tableGeometry = new THREE.PlaneGeometry(30, 20);
+            const tableMaterial = new THREE.MeshLambertMaterial({ color: 0x228b22 });
+            const table = new THREE.Mesh(tableGeometry, tableMaterial);
+            table.rotation.x = -Math.PI / 2;
+            table.position.y = -0.01;
+            scene.add(table);
+
+            createZoneVisuals();
+
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2();
+
+            createDeck();
+            setupEvents();
+            animate();
+        }
+
+        function createZoneVisuals() {
+            const zoneMaterial = new THREE.LineBasicMaterial({ color: 0x444444 });
+
+            for (const zone of zones) {
+                const w = zone.width / 2;
+                const h = zone.height / 2;
+                const points = [
+                    new THREE.Vector3(-w, 0, -h),
+                    new THREE.Vector3(w, 0, -h),
+                    new THREE.Vector3(w, 0, h),
+                    new THREE.Vector3(-w, 0, h),
+                    new THREE.Vector3(-w, 0, -h),
+                ];
+                const geometry = new THREE.BufferGeometry().setFromPoints(points);
+                const line = new THREE.Line(geometry, zoneMaterial);
+                line.position.set(zone.x, 0.001, zone.z);
+                line.rotation.y = zone.rotation;
+                scene.add(line);
+            }
+        }
+
+        let spriteSheet = null;
+        let spriteCardWidth = 0;
+        let spriteCardHeight = 0;
+
+        function loadSpriteSheet() {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                img.onload = () => {
+                    spriteSheet = img;
+                    spriteCardWidth = img.width / SPRITE_COLS;
+                    spriteCardHeight = img.height / SPRITE_ROWS;
+                    resolve();
+                };
+                img.src = 'spritesheet.png';
+            });
+        }
+
+        function createSpriteTexture(index) {
+            const canvas = document.createElement('canvas');
+            canvas.width = spriteCardWidth;
+            canvas.height = spriteCardHeight;
+            const ctx = canvas.getContext('2d');
+
+            // Calculate sprite position (1-based index)
+            const i = index - 1;
+            const col = i % SPRITE_COLS;
+            const row = Math.floor(i / SPRITE_COLS);
+            const sx = col * spriteCardWidth;
+            const sy = row * spriteCardHeight;
+
+            // Draw at native resolution - no upscaling
+            ctx.drawImage(spriteSheet, sx, sy, spriteCardWidth, spriteCardHeight, 0, 0, spriteCardWidth, spriteCardHeight);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.colorSpace = THREE.NoColorSpace;
+            texture.minFilter = THREE.LinearMipmapLinearFilter;
+            texture.magFilter = THREE.LinearFilter;
+            texture.generateMipmaps = true;
+            texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+            return texture;
+        }
+
+        function createDeck() {
+            const drawPile = piles.draw;
+
+            CARD_DEFS.forEach((cardDef, cardIndex) => {
+                const faceTexture = createSpriteTexture(cardDef.index);
+                const backTexture = createSpriteTexture(cardDef.back);
+
+                const materials = [
+                    new THREE.MeshBasicMaterial({ color: 0xffffff }),
+                    new THREE.MeshBasicMaterial({ color: 0xffffff }),
+                    new THREE.MeshBasicMaterial({ map: faceTexture }),
+                    new THREE.MeshBasicMaterial({ map: backTexture }),
+                    new THREE.MeshBasicMaterial({ color: 0xffffff }),
+                    new THREE.MeshBasicMaterial({ color: 0xffffff })
+                ];
+
+                const geometry = new THREE.BoxGeometry(CARD_WIDTH, CARD_DEPTH, CARD_HEIGHT);
+                const card = new THREE.Mesh(geometry, materials);
+
+                card.position.set(drawPile.x, cardIndex * CARD_DEPTH, drawPile.z);
+
+                card.userData = { index: cardDef.index, name: cardDef.name, faceUp: true };
+                cards.push(card);
+                drawPile.cards.push(card);
+                scene.add(card);
+            });
+        }
+
+        function setupEvents() {
+            renderer.domElement.addEventListener('mousedown', onMouseDown);
+            renderer.domElement.addEventListener('mousemove', onMouseMove);
+            renderer.domElement.addEventListener('mouseup', onMouseUp);
+            window.addEventListener('resize', onResize);
+        }
+
+        function updateMouse(event) {
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        }
+
+        function onMouseDown(event) {
+            updateMouse(event);
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(cards);
+
+            if (intersects.length > 0) {
+                draggedCard = intersects[0].object;
+                dragStartPos.copy(draggedCard.position);
+
+                const maxY = Math.max(...cards.map(c => c.position.y));
+                draggedCard.position.y = maxY + CARD_DEPTH + 0.5;
+
+                const intersectPoint = new THREE.Vector3();
+                raycaster.ray.intersectPlane(tablePlane, intersectPoint);
+                dragOffset.copy(draggedCard.position).sub(intersectPoint);
+                dragOffset.y = draggedCard.position.y;
+            }
+        }
+
+        function onMouseMove(event) {
+            if (!draggedCard) return;
+
+            updateMouse(event);
+            raycaster.setFromCamera(mouse, camera);
+
+            const intersectPoint = new THREE.Vector3();
+            raycaster.ray.intersectPlane(tablePlane, intersectPoint);
+
+            draggedCard.position.x = intersectPoint.x + dragOffset.x;
+            draggedCard.position.z = intersectPoint.z + dragOffset.z;
+        }
+
+        function findNearestZone(x, z) {
+            let nearest = zones[0];
+            let minDist = Infinity;
+            for (const zone of zones) {
+                const dist = Math.hypot(x - zone.x, z - zone.z);
+                if (dist < minDist) {
+                    minDist = dist;
+                    nearest = zone;
+                }
+            }
+            return nearest;
+        }
+
+        function removeCardFromZones(card) {
+            for (const zone of zones) {
+                const idx = zone.cards.indexOf(card);
+                if (idx !== -1) {
+                    zone.cards.splice(idx, 1);
+                    return zone;
+                }
+            }
+            return null;
+        }
+
+        function flipCard(card) {
+            card.userData.faceUp = !card.userData.faceUp;
+            const targetRotZ = card.userData.faceUp ? 0 : Math.PI;
+
+            // Remove any existing animation for this card
+            animatingCards = animatingCards.filter(a => a.card !== card);
+            animatingCards.push({
+                card,
+                startPos: card.position.clone(),
+                endPos: card.position.clone(),
+                startRotZ: card.rotation.z,
+                endRotZ: targetRotZ,
+                startRot: card.rotation.y,
+                endRot: card.rotation.y,
+                liftHeight: 2,
+                baseY: card.position.y,
+                startTime: performance.now(),
+                duration: 300
+            });
+        }
+
+        function onMouseUp() {
+            if (draggedCard) {
+                // Check if it was a click (minimal movement) vs drag
+                const dx = draggedCard.position.x - dragStartPos.x;
+                const dz = draggedCard.position.z - dragStartPos.z;
+                const distMoved = Math.sqrt(dx * dx + dz * dz);
+
+                if (distMoved < 0.5) {
+                    // It's a click - flip the card
+                    // Return card to original position first
+                    draggedCard.position.x = dragStartPos.x;
+                    draggedCard.position.z = dragStartPos.z;
+                    draggedCard.position.y = dragStartPos.y;
+                    flipCard(draggedCard);
+                } else {
+                    // It's a drag - move to new zone
+                    const oldZone = removeCardFromZones(draggedCard);
+
+                    const newZone = findNearestZone(draggedCard.position.x, draggedCard.position.z);
+                    newZone.cards.push(draggedCard);
+
+                    // Relayout both zones
+                    if (oldZone && oldZone !== newZone) {
+                        layoutCardsInZone(oldZone);
+                    }
+                    layoutCardsInZone(newZone);
+                }
+
+                draggedCard = null;
+            }
+        }
+
+        function onResize() {
+            const aspect = 1920 / 1080;
+            const frustumSize = 20;
+            camera.left = -frustumSize * aspect / 2;
+            camera.right = frustumSize * aspect / 2;
+            camera.top = frustumSize / 2;
+            camera.bottom = -frustumSize / 2;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            updateAnimations();
+            renderer.render(scene, camera);
+        }
+
+        init();
+    </script>
+</body>
+</html>
