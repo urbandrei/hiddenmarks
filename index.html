@@ -6,11 +6,106 @@
     <title>Card Table</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { overflow: hidden; }
+        body {
+            overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            background: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
         canvas { display: block; }
+
+        #lobby {
+            position: fixed;
+            inset: 0;
+            background: rgba(26, 26, 46, 0.98);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            z-index: 1000;
+        }
+        #lobby h1 { font-size: 2.5rem; margin-bottom: 2rem; }
+        #lobby .buttons { display: flex; gap: 1rem; }
+        #lobby button {
+            padding: 1rem 2.5rem;
+            font-size: 1.2rem;
+            cursor: pointer;
+            border: none;
+            border-radius: 8px;
+            background: #4a90d9;
+            color: white;
+            transition: background 0.2s;
+        }
+        #lobby button:hover { background: #357abd; }
+        #lobby button:disabled { background: #666; cursor: not-allowed; }
+        #lobby input {
+            padding: 1rem;
+            font-size: 1.5rem;
+            text-align: center;
+            letter-spacing: 0.5rem;
+            width: 200px;
+            border: 2px solid #4a90d9;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.1);
+            color: white;
+        }
+        #lobby input::placeholder { color: rgba(255,255,255,0.4); letter-spacing: normal; }
+        #lobby .room-code {
+            font-size: 3rem;
+            letter-spacing: 0.5rem;
+            font-weight: bold;
+            color: #4a90d9;
+            margin: 1rem 0;
+        }
+        #lobby .player-list {
+            margin-top: 1.5rem;
+            text-align: center;
+        }
+        #lobby .player-list div {
+            padding: 0.3rem 0;
+            color: rgba(255,255,255,0.7);
+        }
+        #lobby .player-list .connected { color: #4ade80; }
+        #lobby .back-btn {
+            margin-top: 1rem;
+            background: #666;
+        }
+        #lobby .error { color: #f87171; margin-top: 1rem; }
+
+        #player-indicator {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            color: white;
+            background: rgba(0,0,0,0.5);
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            z-index: 100;
+        }
+
+        .player-label {
+            position: fixed;
+            color: white;
+            background: rgba(0,0,0,0.6);
+            padding: 0.3rem 0.8rem;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            z-index: 100;
+            pointer-events: none;
+        }
+        .player-label.bottom { bottom: 10px; left: 50%; transform: translateX(-50%); }
+        .player-label.top { top: 10px; left: 50%; transform: translateX(-50%); }
+        .player-label.left { left: 10px; top: 50%; transform: translateY(-50%); }
+        .player-label.right { right: 10px; top: 50%; transform: translateY(-50%); }
+        .player-label.you { background: rgba(74, 144, 217, 0.7); }
     </style>
 </head>
 <body>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script type="importmap">
     {
         "imports": {
@@ -120,6 +215,551 @@
         let tablePlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
         let animatingCards = [];
 
+        // Network state
+        let peer = null;
+        let isHost = false;
+        let roomCode = null;
+        let myPlayerNumber = null;
+        let myPlayerId = null; // Generated fresh per session to allow multi-tab testing
+        let myPlayerName = null;
+
+        // Host-only state
+        let connections = new Map();     // peerId -> DataConnection
+        let playerSlots = new Map();     // playerId -> playerNumber
+        let peerToPlayer = new Map();    // peerId -> playerId
+        let playerNames = new Map();     // playerId -> name
+
+        // Client-only state
+        let hostConnection = null;
+
+        // Shared state (for labels)
+        let currentPlayerList = [];
+
+        // Flag to ignore incoming state updates briefly after local actions
+        let ignoreNextStateUpdate = false;
+
+        // Message types
+        const MSG = {
+            JOIN_REQUEST: 'join_request',
+            JOIN_ACCEPTED: 'join_accepted',
+            JOIN_REJECTED: 'join_rejected',
+            PLAYER_LIST: 'player_list',
+            STATE_UPDATE: 'state_update',
+            STATE_BROADCAST: 'state_broadcast',
+        };
+
+        // === UTILITY FUNCTIONS ===
+
+        // Update player labels around the table
+        // Player positions: 1=bottom, 2=right, 3=top, 4=left
+        function updatePlayerLabels() {
+            // Remove existing labels
+            document.querySelectorAll('.player-label').forEach(el => el.remove());
+
+            if (!currentPlayerList.length) return;
+
+            const positionClasses = ['bottom', 'right', 'top', 'left'];
+
+            for (const player of currentPlayerList) {
+                // Only show labels for connected players
+                if (!player.connected) continue;
+
+                const posClass = positionClasses[player.num - 1];
+                const isYou = player.num === myPlayerNumber;
+
+                const label = document.createElement('div');
+                label.className = `player-label ${posClass}${isYou ? ' you' : ''}`;
+                label.textContent = player.name || `Player ${player.num}`;
+                document.body.appendChild(label);
+            }
+        }
+
+        function generateRoomCode() {
+            return Math.floor(100000 + Math.random() * 900000).toString();
+        }
+
+        function getOrCreatePlayerId() {
+            if (!myPlayerId) {
+                myPlayerId = crypto.randomUUID();
+            }
+            return myPlayerId;
+        }
+
+        // === STATE SERIALIZATION ===
+
+        function serializeGameState() {
+            const state = {
+                version: 1,
+                timestamp: Date.now(),
+                zones: {}
+            };
+
+            for (const zone of zones) {
+                state.zones[zone.id] = zone.cards.map(card => ({
+                    cardIndex: cards.indexOf(card),
+                    faceUp: card.userData.faceUp
+                }));
+            }
+
+            return state;
+        }
+
+        function applyGameState(state) {
+            // Clear all zones
+            for (const zone of zones) {
+                zone.cards = [];
+            }
+
+            // Track cards that need flip animations
+            const cardsToFlip = [];
+
+            // Repopulate zones from state
+            for (const [zoneId, cardData] of Object.entries(state.zones)) {
+                const zone = zones.find(z => z.id === zoneId);
+                if (!zone) continue;
+
+                for (const { cardIndex, faceUp } of cardData) {
+                    const card = cards[cardIndex];
+                    if (!card) continue;
+
+                    zone.cards.push(card);
+
+                    // Track cards that need to flip (don't animate yet)
+                    if (card.userData.faceUp !== faceUp) {
+                        cardsToFlip.push({ card, faceUp });
+                        card.userData.faceUp = faceUp;
+                    }
+                }
+
+                // Layout cards in zone
+                layoutCardsInZone(zone, true);
+            }
+
+            // NOW add flip animations (after layoutCardsInZone is done)
+            for (const { card, faceUp } of cardsToFlip) {
+                const targetRotZ = faceUp ? 0 : Math.PI;
+                animatingCards = animatingCards.filter(a => a.card !== card);
+                animatingCards.push({
+                    card,
+                    startPos: card.position.clone(),
+                    endPos: card.position.clone(),
+                    startRotZ: card.rotation.z,
+                    endRotZ: targetRotZ,
+                    startRot: card.rotation.y,
+                    endRot: card.rotation.y,
+                    liftHeight: 2,
+                    baseY: card.position.y,
+                    startTime: performance.now(),
+                    duration: 300
+                });
+            }
+        }
+
+        // === NETWORK FUNCTIONS ===
+
+        function sendStateUpdate() {
+            if (!peer) return; // Single-player or not connected
+
+            const state = serializeGameState();
+
+            if (isHost) {
+                // Host: broadcast to all clients immediately
+                // Set flag to ignore incoming state updates briefly
+                ignoreNextStateUpdate = true;
+                setTimeout(() => { ignoreNextStateUpdate = false; }, 100);
+                broadcastState(state);
+            } else if (hostConnection && hostConnection.open) {
+                // Client: send to host
+                // Set flag to ignore incoming broadcasts briefly (same as host)
+                ignoreNextStateUpdate = true;
+                setTimeout(() => { ignoreNextStateUpdate = false; }, 200);
+                hostConnection.send({
+                    type: MSG.STATE_UPDATE,
+                    gameState: state
+                });
+            }
+        }
+
+        function broadcastState(state) {
+            const message = {
+                type: MSG.STATE_BROADCAST,
+                gameState: state
+            };
+
+            for (const conn of connections.values()) {
+                if (conn.open) {
+                    conn.send(message);
+                }
+            }
+        }
+
+        function getPlayerList() {
+            const list = [];
+            for (let i = 1; i <= 4; i++) {
+                let connected = false;
+                let playerId = null;
+                let name = null;
+
+                if (i === 1 && isHost) {
+                    connected = true;
+                    playerId = myPlayerId;
+                    name = myPlayerName;
+                } else {
+                    // Check if any player has this slot
+                    for (const [pid, slot] of playerSlots.entries()) {
+                        if (slot === i) {
+                            playerId = pid;
+                            name = playerNames.get(pid) || null;
+                            // Check if connected
+                            for (const [peerId, connPlayerId] of peerToPlayer.entries()) {
+                                if (connPlayerId === pid && connections.get(peerId)?.open) {
+                                    connected = true;
+                                    break;
+                                }
+                            }
+                            break;
+                        }
+                    }
+                }
+
+                list.push({ num: i, connected, name });
+            }
+            return list;
+        }
+
+        function broadcastPlayerList() {
+            const list = getPlayerList();
+            const message = { type: MSG.PLAYER_LIST, players: list };
+
+            for (const conn of connections.values()) {
+                if (conn.open) {
+                    conn.send(message);
+                }
+            }
+
+            // Update host's own UI
+            updateLobbyPlayerList(list);
+            updatePlayerLabels();
+        }
+
+        function handleIncomingConnection(conn) {
+            conn.on('open', () => {
+                conn.on('data', (data) => handlePeerMessage(conn, data));
+                conn.on('close', () => handlePeerDisconnect(conn));
+            });
+        }
+
+        function handlePeerMessage(conn, data) {
+            switch (data.type) {
+                case MSG.JOIN_REQUEST: {
+                    const { playerId, playerName } = data;
+                    console.log(`[Host] Join request from "${playerName}" (${playerId})`);
+
+                    // Store player name
+                    if (playerName) {
+                        playerNames.set(playerId, playerName);
+                    }
+
+                    // Check for reconnection
+                    if (playerSlots.has(playerId)) {
+                        // Reconnecting player - same slot
+                        const playerNum = playerSlots.get(playerId);
+                        console.log(`[Host] Reconnecting player to slot ${playerNum}`);
+                        acceptPlayer(conn, playerId, playerNum);
+                    } else if (playerSlots.size < 4) {
+                        // New player - find next slot
+                        const playerNum = getNextPlayerSlot();
+                        playerSlots.set(playerId, playerNum);
+                        console.log(`[Host] New player assigned to slot ${playerNum}`);
+                        acceptPlayer(conn, playerId, playerNum);
+                    } else {
+                        console.log(`[Host] Rejected - game is full`);
+                        conn.send({ type: MSG.JOIN_REJECTED, reason: 'Game is full' });
+                    }
+                    break;
+                }
+
+                case MSG.STATE_UPDATE: {
+                    // Apply state and broadcast to all (last-write-wins)
+                    // Skip applying if host just made a local change
+                    if (!ignoreNextStateUpdate) {
+                        applyGameState(data.gameState);
+                    }
+                    broadcastState(data.gameState);
+                    break;
+                }
+            }
+        }
+
+        function getNextPlayerSlot() {
+            const usedSlots = new Set(playerSlots.values());
+            usedSlots.add(1); // Host is always slot 1
+            for (let i = 2; i <= 4; i++) {
+                if (!usedSlots.has(i)) return i;
+            }
+            return null;
+        }
+
+        function acceptPlayer(conn, playerId, playerNum) {
+            connections.set(conn.peer, conn);
+            peerToPlayer.set(conn.peer, playerId);
+
+            console.log(`[Host] Accepting player ${playerNum}, sending game state`);
+            conn.send({
+                type: MSG.JOIN_ACCEPTED,
+                playerNumber: playerNum,
+                gameState: serializeGameState(),
+                playerList: getPlayerList()
+            });
+
+            console.log(`[Host] Broadcasting updated player list`);
+            broadcastPlayerList();
+        }
+
+        function handlePeerDisconnect(conn) {
+            const playerId = peerToPlayer.get(conn.peer);
+            const playerNum = playerSlots.get(playerId);
+            const playerName = playerNames.get(playerId);
+            console.log(`[Host] Player disconnected: "${playerName}" (slot ${playerNum}, id: ${playerId})`);
+
+            connections.delete(conn.peer);
+            peerToPlayer.delete(conn.peer);
+            // Keep playerSlots entry for reconnection
+            console.log(`[Host] Broadcasting updated player list`);
+            broadcastPlayerList();
+        }
+
+        function handleHostMessage(data) {
+            switch (data.type) {
+                case MSG.JOIN_ACCEPTED:
+                    myPlayerNumber = data.playerNumber;
+                    updateLobbyPlayerList(data.playerList);
+                    applyGameState(data.gameState);
+                    hideLobby();
+                    showPlayerIndicator();
+                    updatePlayerLabels();
+                    break;
+
+                case MSG.JOIN_REJECTED:
+                    showLobbyError(data.reason);
+                    break;
+
+                case MSG.STATE_BROADCAST:
+                    if (!ignoreNextStateUpdate) {
+                        applyGameState(data.gameState);
+                    }
+                    break;
+
+                case MSG.PLAYER_LIST:
+                    updateLobbyPlayerList(data.players);
+                    updatePlayerLabels();
+                    break;
+            }
+        }
+
+        // === LOBBY UI ===
+
+        function showLobby() {
+            const lobby = document.createElement('div');
+            lobby.id = 'lobby';
+            lobby.innerHTML = `
+                <h1>Hidden Marks</h1>
+                <div id="lobby-content">
+                    <input type="text" id="name-input" maxlength="20" placeholder="Enter your name" style="margin-bottom: 1rem;" />
+                    <div class="buttons">
+                        <button id="host-btn" disabled>Host Game</button>
+                        <button id="join-btn" disabled>Join Game</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(lobby);
+
+            const nameInput = document.getElementById('name-input');
+            const hostBtn = document.getElementById('host-btn');
+            const joinBtn = document.getElementById('join-btn');
+
+            nameInput.addEventListener('input', () => {
+                const hasName = nameInput.value.trim().length > 0;
+                hostBtn.disabled = !hasName;
+                joinBtn.disabled = !hasName;
+            });
+
+            hostBtn.addEventListener('click', () => {
+                myPlayerName = nameInput.value.trim();
+                hostGame();
+            });
+            joinBtn.addEventListener('click', () => {
+                myPlayerName = nameInput.value.trim();
+                showJoinScreen();
+            });
+
+            nameInput.focus();
+        }
+
+        function showJoinScreen() {
+            const content = document.getElementById('lobby-content');
+            content.innerHTML = `
+                <p>Enter room code:</p>
+                <input type="text" id="room-input" maxlength="6" placeholder="000000" />
+                <div class="buttons" style="margin-top: 1rem;">
+                    <button id="connect-btn">Connect</button>
+                </div>
+                <button class="back-btn" id="back-btn">Back</button>
+                <div id="lobby-error" class="error"></div>
+            `;
+
+            const input = document.getElementById('room-input');
+            input.focus();
+            input.addEventListener('keyup', (e) => {
+                if (e.key === 'Enter') joinGame(input.value);
+            });
+
+            document.getElementById('connect-btn').addEventListener('click', () => joinGame(input.value));
+            document.getElementById('back-btn').addEventListener('click', () => {
+                document.getElementById('lobby').remove();
+                showLobby();
+            });
+        }
+
+        function showHostScreen() {
+            const content = document.getElementById('lobby-content');
+            content.innerHTML = `
+                <p>Room Code:</p>
+                <div class="room-code">${roomCode}</div>
+                <p>Share this code with other players</p>
+                <div class="player-list" id="player-list"></div>
+                <button id="start-btn" style="margin-top: 1.5rem;">Start Game</button>
+            `;
+
+            updateLobbyPlayerList(getPlayerList());
+
+            document.getElementById('start-btn').addEventListener('click', () => {
+                currentPlayerList = getPlayerList();
+                hideLobby();
+                showPlayerIndicator();
+                updatePlayerLabels();
+            });
+        }
+
+        function updateLobbyPlayerList(players) {
+            currentPlayerList = players;
+
+            const listEl = document.getElementById('player-list');
+            if (!listEl) return;
+
+            listEl.innerHTML = players.map(p => {
+                const displayName = p.name || `Player ${p.num}`;
+                const status = p.connected ? '✓' : '...';
+                return `<div class="${p.connected ? 'connected' : ''}">
+                    ${displayName} ${status}
+                </div>`;
+            }).join('');
+        }
+
+        function showLobbyError(message) {
+            const errorEl = document.getElementById('lobby-error');
+            if (errorEl) errorEl.textContent = message;
+        }
+
+        function hideLobby() {
+            const lobby = document.getElementById('lobby');
+            if (lobby) lobby.remove();
+        }
+
+        function showPlayerIndicator() {
+            const indicator = document.createElement('div');
+            indicator.id = 'player-indicator';
+            indicator.textContent = `You: ${myPlayerName}`;
+            document.body.appendChild(indicator);
+        }
+
+        // === HOST/JOIN FLOWS ===
+
+        async function hostGame() {
+            getOrCreatePlayerId();
+            roomCode = generateRoomCode();
+
+            const content = document.getElementById('lobby-content');
+            content.innerHTML = `<p>Creating room...</p>`;
+
+            peer = new Peer(roomCode);
+
+            peer.on('open', () => {
+                isHost = true;
+                myPlayerNumber = 1;
+                playerSlots.set(myPlayerId, 1);
+                playerNames.set(myPlayerId, myPlayerName);
+                showHostScreen();
+            });
+
+            peer.on('connection', handleIncomingConnection);
+
+            peer.on('error', (err) => {
+                console.error('Peer error:', err);
+                content.innerHTML = `
+                    <p class="error">Failed to create room: ${err.type}</p>
+                    <button class="back-btn" id="back-btn">Back</button>
+                `;
+                document.getElementById('back-btn').addEventListener('click', () => {
+                    document.getElementById('lobby').remove();
+                    showLobby();
+                });
+            });
+        }
+
+        async function joinGame(code) {
+            if (!code || code.length !== 6) {
+                showLobbyError('Please enter a 6-digit code');
+                return;
+            }
+
+            getOrCreatePlayerId();
+            roomCode = code;
+
+            const content = document.getElementById('lobby-content');
+            content.innerHTML = `<p>Connecting to ${code}...</p>`;
+
+            peer = new Peer();
+
+            peer.on('open', () => {
+                hostConnection = peer.connect(code, { reliable: true });
+
+                hostConnection.on('open', () => {
+                    hostConnection.send({
+                        type: MSG.JOIN_REQUEST,
+                        playerId: myPlayerId,
+                        playerName: myPlayerName
+                    });
+                });
+
+                hostConnection.on('data', handleHostMessage);
+
+                hostConnection.on('close', () => {
+                    // Attempt reconnection
+                    setTimeout(() => {
+                        if (roomCode && !document.getElementById('lobby')) {
+                            showLobby();
+                            showLobbyError('Disconnected from host');
+                        }
+                    }, 1000);
+                });
+
+                hostConnection.on('error', (err) => {
+                    showLobbyError(`Connection error: ${err.type}`);
+                });
+            });
+
+            peer.on('error', (err) => {
+                console.error('Peer error:', err);
+                if (err.type === 'peer-unavailable') {
+                    showLobbyError('Room not found');
+                } else {
+                    showLobbyError(`Error: ${err.type}`);
+                }
+                showJoinScreen();
+            });
+        }
+
         function easeInOut(t) {
             return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
         }
@@ -223,7 +863,19 @@
 
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setPixelRatio(window.devicePixelRatio);
-            renderer.setSize(window.innerWidth, window.innerHeight);
+
+            // Calculate letterboxed size
+            const targetAspect = 1920 / 1080;
+            const windowAspect = window.innerWidth / window.innerHeight;
+            let width, height;
+            if (windowAspect > targetAspect) {
+                height = window.innerHeight;
+                width = height * targetAspect;
+            } else {
+                width = window.innerWidth;
+                height = width / targetAspect;
+            }
+            renderer.setSize(width, height);
             document.body.appendChild(renderer.domElement);
 
             const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
@@ -349,8 +1001,9 @@
         }
 
         function updateMouse(event) {
-            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+            const rect = renderer.domElement.getBoundingClientRect();
+            mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
         }
 
         function onMouseDown(event) {
@@ -444,6 +1097,7 @@
                     draggedCard.position.z = dragStartPos.z;
                     draggedCard.position.y = dragStartPos.y;
                     flipCard(draggedCard);
+                    sendStateUpdate();
                 } else {
                     // It's a drag - move to new zone
                     const oldZone = removeCardFromZones(draggedCard);
@@ -456,6 +1110,7 @@
                         layoutCardsInZone(oldZone);
                     }
                     layoutCardsInZone(newZone);
+                    sendStateUpdate();
                 }
 
                 draggedCard = null;
@@ -463,14 +1118,22 @@
         }
 
         function onResize() {
-            const aspect = 1920 / 1080;
-            const frustumSize = 20;
-            camera.left = -frustumSize * aspect / 2;
-            camera.right = frustumSize * aspect / 2;
-            camera.top = frustumSize / 2;
-            camera.bottom = -frustumSize / 2;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
+            const targetAspect = 1920 / 1080;
+            const windowAspect = window.innerWidth / window.innerHeight;
+
+            let width, height;
+            if (windowAspect > targetAspect) {
+                // Window is wider than 16:9 - pillarbox (black bars on sides)
+                height = window.innerHeight;
+                width = height * targetAspect;
+            } else {
+                // Window is taller than 16:9 - letterbox (black bars top/bottom)
+                width = window.innerWidth;
+                height = width / targetAspect;
+            }
+
+            renderer.setSize(width, height);
+            // Camera frustum stays fixed at 16:9
         }
 
         function animate() {
@@ -479,7 +1142,8 @@
             renderer.render(scene, camera);
         }
 
-        init();
+        // Initialize game first, then show lobby over it
+        init().then(() => showLobby());
     </script>
 </body>
 </html>
