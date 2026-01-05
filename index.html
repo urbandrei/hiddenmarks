@@ -102,6 +102,32 @@
         .player-label.left { left: 10px; top: 50%; transform: translateY(-50%); }
         .player-label.right { right: 10px; top: 50%; transform: translateY(-50%); }
         .player-label.you { background: rgba(74, 144, 217, 0.7); }
+        .player-label.current-turn {
+            background: rgba(255, 215, 0, 0.8) !important;
+            color: #000;
+            box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 10px rgba(255, 215, 0, 0.5); }
+            50% { box-shadow: 0 0 20px rgba(255, 215, 0, 0.8); }
+        }
+        #action-counter {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            color: white;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            letter-spacing: 0.3rem;
+            z-index: 100;
+        }
+        #action-counter.not-your-turn {
+            opacity: 0.5;
+        }
     </style>
 </head>
 <body>
@@ -124,37 +150,37 @@
         // Back indices: 54=red, 55=blue, 56=white, 57=mark
         const CARD_DEFS = [
             // White back (56)
-            { index: 1, name: 'body swap', back: 56 },
-            { index: 3, name: 'alter ego', back: 56 },
-            { index: 5, name: 'greed', back: 56 },
-            { index: 7, name: 'tied up', back: 56 },
-            { index: 9, name: 'revenge', back: 56 },
-            { index: 11, name: 'insomnia', back: 56 },
-            { index: 13, name: 'blind spot', back: 56 },
-            { index: 15, name: 'trade off', back: 56 },
-            { index: 19, name: 'unmasked', back: 56 },
+            { index: 1, name: 'body swap', back: 56, count: 2 },
+            { index: 3, name: 'alter ego', back: 56, count: 2 },
+            { index: 5, name: 'greed', back: 56, count: 2 },
+            { index: 7, name: 'tied up', back: 56, count: 2 },
+            { index: 9, name: 'revenge', back: 56, count: 2 },
+            { index: 11, name: 'insomnia', back: 56, count: 2 },
+            { index: 13, name: 'blind spot', back: 56, count: 2 },
+            { index: 15, name: 'trade off', back: 56, count: 4 },
+            { index: 19, name: 'unmasked', back: 56, count: 4 },
             // Blue back (55)
-            { index: 23, name: 'upheaval', back: 55 },
-            { index: 25, name: 'arson', back: 55 },
-            { index: 27, name: 'snub', back: 55 },
-            { index: 31, name: 'red handed', back: 55 },
-            { index: 33, name: 'counterfeit', back: 55 },
-            { index: 36, name: 'heavy hand', back: 55 },
+            { index: 23, name: 'upheaval', back: 55, count: 2 },
+            { index: 25, name: 'arson', back: 55, count: 2 },
+            { index: 27, name: 'snub', back: 55, count: 4 },
+            { index: 31, name: 'red handed', back: 55, count: 2 },
+            { index: 33, name: 'counterfeit', back: 55, count: 3 },
+            { index: 36, name: 'heavy hand', back: 55, count: 3 },
             // Red back (54)
-            { index: 39, name: 'clubs bounty', back: 54 },
-            { index: 40, name: 'hearts bounty', back: 54 },
-            { index: 41, name: 'spades bounty', back: 54 },
-            { index: 42, name: 'diamonds bounty', back: 54 },
-            { index: 43, name: 'jokers bounty', back: 54 },
-            { index: 44, name: 'backfire', back: 54 },
-            { index: 46, name: 'bloodshot', back: 54 },
-            { index: 47, name: 'gold digger', back: 54 },
+            { index: 39, name: 'clubs bounty', back: 54, count: 1 },
+            { index: 40, name: 'hearts bounty', back: 54, count: 1 },
+            { index: 41, name: 'spades bounty', back: 54, count: 1 },
+            { index: 42, name: 'diamonds bounty', back: 54, count: 1 },
+            { index: 43, name: 'jokers bounty', back: 54, count: 1 },
+            { index: 44, name: 'backfire', back: 54, count: 2 },
+            { index: 46, name: 'bloodshot', back: 54, count: 1 },
+            { index: 47, name: 'gold digger', back: 54, count: 2 },
             // Mark back (57)
-            { index: 49, name: 'hearts mark', back: 57 },
-            { index: 50, name: 'spades mark', back: 57 },
-            { index: 51, name: 'clubs mark', back: 57 },
-            { index: 52, name: 'diamonds mark', back: 57 },
-            { index: 53, name: 'jokers mark', back: 57 },
+            { index: 49, name: 'hearts mark', back: 57, count: 1 },
+            { index: 50, name: 'spades mark', back: 57, count: 1 },
+            { index: 51, name: 'clubs mark', back: 57, count: 1 },
+            { index: 52, name: 'diamonds mark', back: 57, count: 1 },
+            { index: 53, name: 'jokers mark', back: 57, count: 1 },
         ];
         const SPRITE_COLS = 10;
         const SPRITE_ROWS = 6;
@@ -188,7 +214,8 @@
             // Center piles
             { id: 'bounty', type: 'pile', player: null, x: -4 - ZONE_LENGTH/6 + CARD_WIDTH/2, z: 0, rotation: 0, width: ZONE_LENGTH/3, height: CARD_HEIGHT, spreadAxis: 'x', spreadDir: -1, cards: [] },
             { id: 'draw', type: 'pile', player: null, x: 0, z: 0, rotation: 0, width: CARD_WIDTH, height: CARD_HEIGHT, spreadAxis: null, cards: [] },
-            { id: 'discard', type: 'pile', player: null, x: 4, z: 0, rotation: 0, width: CARD_WIDTH, height: CARD_HEIGHT, spreadAxis: null, cards: [] },
+            { id: 'discard', type: 'pile', player: null, x: 3, z: 0, rotation: 0, width: CARD_WIDTH, height: CARD_HEIGHT, spreadAxis: null, cards: [] },
+            { id: 'extra-mark', type: 'pile', player: null, x: 6, z: 0, rotation: 0, width: CARD_WIDTH, height: CARD_HEIGHT, spreadAxis: null, cards: [] },
         ];
 
         // Player lookup (index 1-4)
@@ -205,6 +232,7 @@
             bounty: zones[16],
             draw: zones[17],
             discard: zones[18],
+            extraMark: zones[19],
         };
 
         let scene, camera, renderer, raycaster, mouse;
@@ -237,6 +265,13 @@
 
         // Flag to ignore incoming state updates briefly after local actions
         let ignoreNextStateUpdate = false;
+
+        // Turn state (synchronized across network)
+        let turnState = {
+            currentPlayerNum: 1,    // Player number whose turn it is (1-4)
+            actionsRemaining: 3,    // Actions left this turn (0-3)
+            gameStarted: false      // Whether the game has officially started
+        };
 
         // Message types
         const MSG = {
@@ -272,6 +307,46 @@
                 label.textContent = player.name || `Player ${player.num}`;
                 document.body.appendChild(label);
             }
+
+            // Also update turn indicators when game is started
+            if (turnState.gameStarted) {
+                updateTurnUI();
+            }
+        }
+
+        function updateTurnUI() {
+            // Update action counter display
+            let counter = document.getElementById('action-counter');
+            if (!counter && turnState.gameStarted) {
+                counter = document.createElement('div');
+                counter.id = 'action-counter';
+                document.body.appendChild(counter);
+            }
+
+            if (counter) {
+                // Show X's for remaining actions
+                counter.textContent = 'X'.repeat(turnState.actionsRemaining);
+
+                // Dim if not your turn
+                if (turnState.currentPlayerNum === myPlayerNumber) {
+                    counter.classList.remove('not-your-turn');
+                } else {
+                    counter.classList.add('not-your-turn');
+                }
+            }
+
+            // Update player labels to highlight current turn
+            document.querySelectorAll('.player-label').forEach(label => {
+                label.classList.remove('current-turn');
+            });
+
+            // Find and highlight current turn player's label
+            const positionClasses = ['bottom', 'right', 'top', 'left'];
+            const currentPosClass = positionClasses[turnState.currentPlayerNum - 1];
+            const currentLabel = document.querySelector(`.player-label.${currentPosClass}`);
+            if (currentLabel) {
+                currentLabel.classList.add('current-turn');
+            }
         }
 
         function generateRoomCode() {
@@ -285,13 +360,216 @@
             return myPlayerId;
         }
 
+        // === TURN MANAGEMENT ===
+
+        function isMyTurn() {
+            return turnState.gameStarted &&
+                   turnState.currentPlayerNum === myPlayerNumber &&
+                   turnState.actionsRemaining > 0;
+        }
+
+        function canPerformAction() {
+            return isMyTurn();
+        }
+
+        function getNextConnectedPlayer(currentNum) {
+            // Get list of connected player numbers
+            const connectedNums = currentPlayerList
+                .filter(p => p.connected)
+                .map(p => p.num)
+                .sort((a, b) => a - b);
+
+            if (connectedNums.length === 0) return currentNum;
+
+            // Find next connected player after currentNum
+            const currentIndex = connectedNums.indexOf(currentNum);
+            const nextIndex = (currentIndex + 1) % connectedNums.length;
+            return connectedNums[nextIndex];
+        }
+
+        function consumeAction() {
+            if (!canPerformAction()) return false;
+
+            turnState.actionsRemaining--;
+
+            // Auto-pass turn when actions exhausted
+            if (turnState.actionsRemaining <= 0) {
+                advanceTurn();
+            }
+
+            updateTurnUI();
+            return true;
+        }
+
+        function advanceTurn() {
+            turnState.currentPlayerNum = getNextConnectedPlayer(turnState.currentPlayerNum);
+            turnState.actionsRemaining = 3;
+            updateTurnUI();
+        }
+
+        function findCardZone(card) {
+            for (const zone of zones) {
+                if (zone.cards.includes(card)) {
+                    return zone;
+                }
+            }
+            return null;
+        }
+
+        // === ACTION EXECUTION ===
+
+        function executeDraw() {
+            // Get top card from draw pile
+            const drawPile = piles.draw;
+            if (drawPile.cards.length === 0) return false;
+
+            const topCard = drawPile.cards[drawPile.cards.length - 1];
+            drawPile.cards.pop();
+
+            // Move to current player's hand
+            const myHand = players[myPlayerNumber].hand;
+            myHand.cards.push(topCard);
+
+            // Layout both zones
+            layoutCardsInZone(drawPile);
+            layoutCardsInZone(myHand);
+
+            consumeAction();
+            sendStateUpdate();
+            return true;
+        }
+
+        function executeBank(card, sourceZone, targetZone) {
+            // Move card from hand to bank
+            removeCardFromZones(card);
+            targetZone.cards.push(card);
+
+            layoutCardsInZone(sourceZone);
+            layoutCardsInZone(targetZone);
+
+            consumeAction();
+            sendStateUpdate();
+            return true;
+        }
+
+        function executePlay(card, sourceZone) {
+            // Move card from hand to discard
+            removeCardFromZones(card);
+            piles.discard.cards.push(card);
+
+            layoutCardsInZone(sourceZone);
+            layoutCardsInZone(piles.discard);
+
+            consumeAction();
+            sendStateUpdate();
+            return true;
+        }
+
+        function isOwnZone(zone) {
+            if (!zone || !myPlayerNumber) return false;
+            return zone.player === myPlayerNumber;
+        }
+
+        // === GAME SETUP ===
+
+        function shuffle(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        function setupGame() {
+            // Clear all zones first
+            for (const zone of zones) {
+                zone.cards = [];
+            }
+
+            // Separate mark cards from main deck
+            const markCards = cards.filter(c => c.userData.name.includes('mark'));
+            const mainDeck = cards.filter(c => !c.userData.name.includes('mark'));
+
+            // Shuffle mark cards
+            shuffle(markCards);
+
+            // Deal marks: one to each player's mark zone, one to extra-mark
+            // Player mark zones are at indices: p1=9, p2=11, p3=8, p4=10 in zones array
+            const playerMarkZones = [
+                players[1].mark,  // p1-mark
+                players[2].mark,  // p2-mark
+                players[3].mark,  // p3-mark
+                players[4].mark,  // p4-mark
+            ];
+
+            // Get connected player numbers
+            const connectedNums = currentPlayerList
+                .filter(p => p.connected)
+                .map(p => p.num);
+
+            // Deal marks to player zones
+            for (let i = 0; i < 4; i++) {
+                const markCard = markCards[i];
+                const markZone = playerMarkZones[i];
+                const playerNum = i + 1;
+                const isConnected = connectedNums.includes(playerNum);
+
+                // Face down for connected players, face up for disconnected
+                markCard.userData.faceUp = !isConnected;
+                markCard.rotation.z = isConnected ? Math.PI : 0;
+
+                markZone.cards.push(markCard);
+                layoutCardsInZone(markZone, false);
+            }
+
+            // Deal 5th mark to extra-mark zone (face down)
+            const extraMarkCard = markCards[4];
+            extraMarkCard.userData.faceUp = false;
+            extraMarkCard.rotation.z = Math.PI;
+            piles.extraMark.cards.push(extraMarkCard);
+            layoutCardsInZone(piles.extraMark, false);
+
+            // Shuffle main deck
+            shuffle(mainDeck);
+
+            // Deal 3 cards to each connected player's hand
+            let deckIndex = 0;
+            for (const playerNum of connectedNums) {
+                const playerHand = players[playerNum].hand;
+                for (let i = 0; i < 3; i++) {
+                    if (deckIndex < mainDeck.length) {
+                        const card = mainDeck[deckIndex];
+                        card.userData.faceUp = true;
+                        card.rotation.z = 0;
+                        playerHand.cards.push(card);
+                        deckIndex++;
+                    }
+                }
+                layoutCardsInZone(playerHand, false);
+            }
+
+            // Put remaining cards in draw pile, face down
+            for (let i = deckIndex; i < mainDeck.length; i++) {
+                const card = mainDeck[i];
+                card.userData.faceUp = false;
+                card.rotation.z = Math.PI;
+                piles.draw.cards.push(card);
+            }
+            layoutCardsInZone(piles.draw, false);
+        }
+
         // === STATE SERIALIZATION ===
 
         function serializeGameState() {
             const state = {
                 version: 1,
                 timestamp: Date.now(),
-                zones: {}
+                zones: {},
+                turn: {
+                    currentPlayerNum: turnState.currentPlayerNum,
+                    actionsRemaining: turnState.actionsRemaining,
+                    gameStarted: turnState.gameStarted
+                }
             };
 
             for (const zone of zones) {
@@ -352,6 +630,14 @@
                     startTime: performance.now(),
                     duration: 300
                 });
+            }
+
+            // Apply turn state if present
+            if (state.turn) {
+                turnState.currentPlayerNum = state.turn.currentPlayerNum;
+                turnState.actionsRemaining = state.turn.actionsRemaining;
+                turnState.gameStarted = state.turn.gameStarted;
+                updateTurnUI();
             }
         }
 
@@ -525,6 +811,16 @@
             connections.delete(conn.peer);
             peerToPlayer.delete(conn.peer);
             // Keep playerSlots entry for reconnection
+
+            // If disconnected player was current turn, advance to next connected player
+            if (turnState.gameStarted && turnState.currentPlayerNum === playerNum) {
+                // Update player list first so getNextConnectedPlayer works correctly
+                currentPlayerList = getPlayerList();
+                advanceTurn();
+                // Broadcast the turn change with state
+                broadcastState(serializeGameState());
+            }
+
             console.log(`[Host] Broadcasting updated player list`);
             broadcastPlayerList();
         }
@@ -635,9 +931,22 @@
 
             document.getElementById('start-btn').addEventListener('click', () => {
                 currentPlayerList = getPlayerList();
+
+                // Setup game - deal marks and cards
+                setupGame();
+
+                // Initialize turn state
+                turnState.gameStarted = true;
+                turnState.currentPlayerNum = 1; // Host starts
+                turnState.actionsRemaining = 3;
+
                 hideLobby();
                 showPlayerIndicator();
                 updatePlayerLabels();
+                updateTurnUI();
+
+                // Broadcast state with turn info
+                sendStateUpdate();
             });
         }
 
@@ -940,7 +1249,14 @@
             });
         }
 
+        const textureCache = new Map();
+
         function createSpriteTexture(index) {
+            // Return cached texture if exists
+            if (textureCache.has(index)) {
+                return textureCache.get(index);
+            }
+
             const canvas = document.createElement('canvas');
             canvas.width = spriteCardWidth;
             canvas.height = spriteCardHeight;
@@ -962,34 +1278,44 @@
             texture.magFilter = THREE.LinearFilter;
             texture.generateMipmaps = true;
             texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+
+            // Cache and return
+            textureCache.set(index, texture);
             return texture;
         }
 
         function createDeck() {
             const drawPile = piles.draw;
+            let cardStackIndex = 0;
 
-            CARD_DEFS.forEach((cardDef, cardIndex) => {
-                const faceTexture = createSpriteTexture(cardDef.index);
-                const backTexture = createSpriteTexture(cardDef.back);
+            CARD_DEFS.forEach((cardDef) => {
+                const copies = cardDef.count || 1;
 
-                const materials = [
-                    new THREE.MeshBasicMaterial({ color: 0xffffff }),
-                    new THREE.MeshBasicMaterial({ color: 0xffffff }),
-                    new THREE.MeshBasicMaterial({ map: faceTexture }),
-                    new THREE.MeshBasicMaterial({ map: backTexture }),
-                    new THREE.MeshBasicMaterial({ color: 0xffffff }),
-                    new THREE.MeshBasicMaterial({ color: 0xffffff })
-                ];
+                for (let c = 0; c < copies; c++) {
+                    const faceTexture = createSpriteTexture(cardDef.index);
+                    const backTexture = createSpriteTexture(cardDef.back);
 
-                const geometry = new THREE.BoxGeometry(CARD_WIDTH, CARD_DEPTH, CARD_HEIGHT);
-                const card = new THREE.Mesh(geometry, materials);
+                    const materials = [
+                        new THREE.MeshBasicMaterial({ color: 0xffffff }),
+                        new THREE.MeshBasicMaterial({ color: 0xffffff }),
+                        new THREE.MeshBasicMaterial({ map: faceTexture }),
+                        new THREE.MeshBasicMaterial({ map: backTexture }),
+                        new THREE.MeshBasicMaterial({ color: 0xffffff }),
+                        new THREE.MeshBasicMaterial({ color: 0xffffff })
+                    ];
 
-                card.position.set(drawPile.x, cardIndex * CARD_DEPTH, drawPile.z);
+                    const geometry = new THREE.BoxGeometry(CARD_WIDTH, CARD_DEPTH, CARD_HEIGHT);
+                    const card = new THREE.Mesh(geometry, materials);
 
-                card.userData = { index: cardDef.index, name: cardDef.name, faceUp: true };
-                cards.push(card);
-                drawPile.cards.push(card);
-                scene.add(card);
+                    card.position.set(drawPile.x, cardStackIndex * CARD_DEPTH, drawPile.z);
+
+                    card.userData = { index: cardDef.index, name: cardDef.name, faceUp: true };
+                    cards.push(card);
+                    drawPile.cards.push(card);
+                    scene.add(card);
+
+                    cardStackIndex++;
+                }
             });
         }
 
@@ -1011,18 +1337,44 @@
             raycaster.setFromCamera(mouse, camera);
             const intersects = raycaster.intersectObjects(cards);
 
-            if (intersects.length > 0) {
-                draggedCard = intersects[0].object;
-                dragStartPos.copy(draggedCard.position);
+            if (intersects.length === 0) return;
 
-                const maxY = Math.max(...cards.map(c => c.position.y));
-                draggedCard.position.y = maxY + CARD_DEPTH + 0.5;
+            const clickedCard = intersects[0].object;
 
-                const intersectPoint = new THREE.Vector3();
-                raycaster.ray.intersectPlane(tablePlane, intersectPoint);
-                dragOffset.copy(draggedCard.position).sub(intersectPoint);
-                dragOffset.y = draggedCard.position.y;
+            // Check for draw action (clicking draw pile)
+            if (turnState.gameStarted && piles.draw.cards.includes(clickedCard)) {
+                if (canPerformAction()) {
+                    // Execute draw action - top card goes to hand
+                    const topCard = piles.draw.cards[piles.draw.cards.length - 1];
+                    if (clickedCard === topCard) {
+                        executeDraw();
+                    }
+                }
+                return; // Don't allow dragging from draw pile
             }
+
+            // If game started, only allow dragging own hand cards during your turn
+            if (turnState.gameStarted) {
+                const myHand = players[myPlayerNumber]?.hand;
+                if (!canPerformAction() || !myHand?.cards.includes(clickedCard)) {
+                    return; // Can't drag if not your turn or not your hand card
+                }
+            }
+
+            // Standard drag initialization
+            draggedCard = clickedCard;
+            dragStartPos.copy(draggedCard.position);
+
+            const maxY = Math.max(...cards.map(c => c.position.y));
+            draggedCard.position.y = maxY + CARD_DEPTH + 0.5;
+
+            const intersectPoint = new THREE.Vector3();
+            raycaster.ray.intersectPlane(tablePlane, intersectPoint);
+            dragOffset.copy(draggedCard.position).sub(intersectPoint);
+            dragOffset.y = draggedCard.position.y;
+
+            // Store source zone for action classification
+            draggedCard.userData.sourceZone = findCardZone(draggedCard);
         }
 
         function onMouseMove(event) {
@@ -1084,37 +1436,61 @@
         }
 
         function onMouseUp() {
-            if (draggedCard) {
-                // Check if it was a click (minimal movement) vs drag
-                const dx = draggedCard.position.x - dragStartPos.x;
-                const dz = draggedCard.position.z - dragStartPos.z;
-                const distMoved = Math.sqrt(dx * dx + dz * dz);
+            if (!draggedCard) return;
 
-                if (distMoved < 0.5) {
-                    // It's a click - flip the card
-                    // Return card to original position first
-                    draggedCard.position.x = dragStartPos.x;
-                    draggedCard.position.z = dragStartPos.z;
-                    draggedCard.position.y = dragStartPos.y;
+            // Check if it was a click (minimal movement) vs drag
+            const dx = draggedCard.position.x - dragStartPos.x;
+            const dz = draggedCard.position.z - dragStartPos.z;
+            const distMoved = Math.sqrt(dx * dx + dz * dz);
+
+            if (distMoved < 0.5) {
+                // It's a click - flip the card
+                // Return card to original position first
+                draggedCard.position.x = dragStartPos.x;
+                draggedCard.position.z = dragStartPos.z;
+                draggedCard.position.y = dragStartPos.y;
+
+                // Only allow flipping before game starts (free play mode)
+                if (!turnState.gameStarted) {
                     flipCard(draggedCard);
                     sendStateUpdate();
+                }
+            } else {
+                // It's a drag
+                const sourceZone = draggedCard.userData.sourceZone;
+                const targetZone = findNearestZone(draggedCard.position.x, draggedCard.position.z);
+
+                if (turnState.gameStarted) {
+                    // Turn-based mode: validate and execute action
+                    const myHand = players[myPlayerNumber]?.hand;
+                    const myBank = players[myPlayerNumber]?.bank;
+
+                    if (sourceZone === myHand && targetZone === myBank) {
+                        // Bank action: hand -> bank
+                        executeBank(draggedCard, sourceZone, targetZone);
+                    } else if (sourceZone === myHand && !isOwnZone(targetZone)) {
+                        // Play action: hand -> outside own zones -> discard
+                        executePlay(draggedCard, sourceZone);
+                    } else {
+                        // Invalid action - return card to original position
+                        draggedCard.position.copy(dragStartPos);
+                        layoutCardsInZone(sourceZone);
+                    }
                 } else {
-                    // It's a drag - move to new zone
+                    // Free play mode (before game starts) - existing behavior
                     const oldZone = removeCardFromZones(draggedCard);
+                    targetZone.cards.push(draggedCard);
 
-                    const newZone = findNearestZone(draggedCard.position.x, draggedCard.position.z);
-                    newZone.cards.push(draggedCard);
-
-                    // Relayout both zones
-                    if (oldZone && oldZone !== newZone) {
+                    if (oldZone && oldZone !== targetZone) {
                         layoutCardsInZone(oldZone);
                     }
-                    layoutCardsInZone(newZone);
+                    layoutCardsInZone(targetZone);
                     sendStateUpdate();
                 }
-
-                draggedCard = null;
             }
+
+            draggedCard.userData.sourceZone = null;
+            draggedCard = null;
         }
 
         function onResize() {
