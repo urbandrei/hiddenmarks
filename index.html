@@ -20,6 +20,69 @@
         #player-indicator, #action-counter { position: fixed; top: 10px; z-index: 100; background: rgba(0,0,0,0.5); color: #fff; padding: 0.3rem; }
         #player-indicator { left: 10px; }
         #action-counter { right: 10px; }
+        .reaction-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.7);
+            z-index: 500;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            pointer-events: auto;
+        }
+        .reaction-overlay.hidden { display: none; }
+        .reaction-card-display {
+            width: 200px;
+            height: 280px;
+            background: #333;
+            border: 3px solid #fff;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        .reaction-timer {
+            font-size: 48px;
+            color: #fff;
+            font-family: monospace;
+            margin-bottom: 20px;
+        }
+        .reaction-prompt {
+            background: rgba(255,255,255,0.1);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        .reaction-prompt p {
+            color: #fff;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+        .reaction-buttons {
+            display: flex;
+            gap: 20px;
+        }
+        .reaction-buttons button {
+            padding: 10px 30px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+        }
+        .reaction-buttons .react-btn {
+            background: #e74c3c;
+            color: white;
+        }
+        .reaction-buttons .pass-btn {
+            background: #7f8c8d;
+            color: white;
+        }
+        .reaction-waiting {
+            color: #aaa;
+            font-style: italic;
+        }
     </style>
 </head>
 <body>
@@ -40,33 +103,35 @@
 
         // Card definitions from sprite sheet (10 cols x 6 rows)
         // Back indices: 54=red, 55=blue, 56=white, 57=mark
+        // Card values by back color (mark cards have no value)
+        const BACK_VALUES = { 54: 3, 55: 2, 56: 1 };
         const CARD_DEFS = [
             // White back (56)
-            { index: 1, name: 'body swap', back: 56, count: 2 },
-            { index: 3, name: 'alter ego', back: 56, count: 2 },
-            { index: 5, name: 'greed', back: 56, count: 2 },
-            { index: 7, name: 'tied up', back: 56, count: 2 },
-            { index: 9, name: 'revenge', back: 56, count: 2 },
-            { index: 11, name: 'insomnia', back: 56, count: 2 },
-            { index: 13, name: 'blind spot', back: 56, count: 2 },
-            { index: 15, name: 'trade off', back: 56, count: 4 },
-            { index: 19, name: 'unmasked', back: 56, count: 4 },
+            { index: 1, name: 'body swap', back: 56, count: 2, cost: 3, effect: 'swap any two player marks' },
+            { index: 3, name: 'alter ego', back: 56, count: 2, cost: 2, effect: 'swap any player\'s mark\nwith the extra mark' },
+            { index: 5, name: 'greed', back: 56, count: 2, cost: 0, effect: 'draw 2 cards' },
+            { index: 7, name: 'tied up', back: 56, count: 2, cost: 3, effect: 'skip any player\'s next turn' },
+            { index: 9, name: 'revenge', back: 56, count: 2, cost: 2, effect: 'REACTIVE:\nif someone tries to peek your mark\npeek at their mark, does not block' },
+            { index: 11, name: 'insomnia', back: 56, count: 2, cost: 3, effect: 'do 3 more actions' },
+            { index: 13, name: 'blind spot', back: 56, count: 2, cost: 2, effect: 'REACTIVE:\nblock a mark peek' },
+            { index: 15, name: 'trade off', back: 56, count: 4, cost: 3, effect: 'swap any card from your hand\nwith a card from any hand/bank' },
+            { index: 19, name: 'unmasked', back: 56, count: 4, cost: 3, effect: 'peek at another player\'s mark' },
             // Blue back (55)
-            { index: 23, name: 'upheaval', back: 55, count: 2 },
-            { index: 25, name: 'arson', back: 55, count: 2 },
-            { index: 27, name: 'snub', back: 55, count: 4 },
-            { index: 31, name: 'red handed', back: 55, count: 2 },
-            { index: 33, name: 'counterfeit', back: 55, count: 3 },
-            { index: 36, name: 'heavy hand', back: 55, count: 3 },
+            { index: 23, name: 'upheaval', back: 55, count: 2, cost: 5, effect: 'cut the draw pile' },
+            { index: 25, name: 'arson', back: 55, count: 2, cost: 5, effect: 'discard all cards from any\nplayer\'s bank' },
+            { index: 27, name: 'snub', back: 55, count: 4, cost: 5, effect: 'REACTIVE:\nprevent a nonlethal card effect' },
+            { index: 31, name: 'red handed', back: 55, count: 2, cost: 10, effect: 'kill a player with 2+ red cards\nin their HAND' },
+            { index: 33, name: 'counterfeit', back: 55, count: 3, cost: 10, effect: 'kill a player with 6+ cards\nin their BANK' },
+            { index: 36, name: 'heavy hand', back: 55, count: 3, cost: 10, effect: 'kill a player with 6+ cards\nin their HAND' },
             // Red back (54)
-            { index: 39, name: 'clubs bounty', back: 54, count: 1 },
-            { index: 40, name: 'hearts bounty', back: 54, count: 1 },
-            { index: 41, name: 'spades bounty', back: 54, count: 1 },
-            { index: 42, name: 'diamonds bounty', back: 54, count: 1 },
-            { index: 43, name: 'jokers bounty', back: 54, count: 1 },
-            { index: 44, name: 'backfire', back: 54, count: 2 },
-            { index: 46, name: 'bloodshot', back: 54, count: 1 },
-            { index: 47, name: 'gold digger', back: 54, count: 2 },
+            { index: 39, name: 'clubs bounty', back: 54, count: 1, cost: 0, effect: 'draw 3 cards. place this card face up\n\nWHILE FACE UP\nAnyone can discard this by paying 5\n\nOR AFTER 1 ROUND\nbounty open an [suit], see rules' },
+            { index: 40, name: 'hearts bounty', back: 54, count: 1, cost: 0, effect: 'draw 3 cards. place this card face up\n\nWHILE FACE UP\nAnyone can discard this by paying 5\n\nOR AFTER 1 ROUND\nbounty open an [suit], see rules' },
+            { index: 41, name: 'spades bounty', back: 54, count: 1, cost: 0, effect: 'draw 3 cards. place this card face up\n\nWHILE FACE UP\nAnyone can discard this by paying 5\n\nOR AFTER 1 ROUND\nbounty open an [suit], see rules' },
+            { index: 42, name: 'diamonds bounty', back: 54, count: 1, cost: 0, effect: 'draw 3 cards. place this card face up\n\nWHILE FACE UP\nAnyone can discard this by paying 5\n\nOR AFTER 1 ROUND\nbounty open an [suit], see rules' },
+            { index: 43, name: 'jokers bounty', back: 54, count: 1, cost: 0, effect: 'draw 3 cards. place this card face up\n\nWHILE FACE UP\nAnyone can discard this by paying 5\n\nOR AFTER 1 ROUND\nbounty open an [suit], see rules' },
+            { index: 44, name: 'backfire', back: 54, count: 2, cost: 10, effect: 'kill a player with 5+ cards\nin their HAND' },
+            { index: 46, name: 'bloodshot', back: 54, count: 1, cost: 10, effect: 'kill a player with any red card\nin their HAND' },
+            { index: 47, name: 'gold digger', back: 54, count: 2, cost: 10, effect: 'kill a player with 5+ cards\nin their BANK' },
             // Mark back (57)
             { index: 49, name: 'hearts mark', back: 57, count: 1 },
             { index: 50, name: 'spades mark', back: 57, count: 1 },
@@ -165,6 +230,46 @@
             gameStarted: false      // Whether the game has officially started
         };
 
+        // Reaction state (synchronized across network)
+        let reactionState = {
+            active: false,
+            card: null,              // Card being played (card object)
+            cardIndex: null,         // Index in cards array for networking
+            playerId: null,          // Player number who played it
+            targetId: null,          // Target player number (if applicable)
+            timeRemaining: 5000,     // Countdown in ms
+            eligibleReactors: [],    // Player numbers who can react
+            responses: {},           // playerId -> 'pass' | 'react'
+            startTime: null,         // For countdown calculation
+            effectType: null,        // 'peek', 'swap', 'skip', etc.
+            isLethal: false          // Kill cards can't be blocked
+        };
+
+        // Mark knowledge state (host-tracked, broadcast to clients)
+        let knownMarks = {}; // { playerId: Set<playerId> } - who knows whose marks
+
+        // Player alive state
+        let playerAlive = { 1: true, 2: true, 3: true, 4: true };
+
+        // Turn tracking for bounty system
+        let currentTurnNumber = 0;
+        let bountyState = {}; // cardIndex -> { owner, turnPlayed, inBountyZone }
+
+        // Upheaval state
+        let upheavalState = {
+            active: false,
+            splitIndex: 0
+        };
+
+        // Targeting state
+        let targetingState = {
+            active: false,
+            type: null,           // 'player', 'mark', 'card', 'zone'
+            validTargets: [],     // IDs of valid targets
+            callback: null,       // Function to call with selected target
+            highlightMeshes: []   // Visual highlights to clean up
+        };
+
         // Message types
         const MSG = {
             JOIN_REQUEST: 'join_request',
@@ -173,6 +278,11 @@
             PLAYER_LIST: 'player_list',
             STATE_UPDATE: 'state_update',
             STATE_BROADCAST: 'state_broadcast',
+            REACTION_START: 'reaction_start',
+            REACTION_RESPONSE: 'reaction_response',
+            REACTION_RESOLVE: 'reaction_resolve',
+            MARK_KNOWLEDGE_UPDATE: 'mark_knowledge_update',
+            PLAYER_DEATH: 'player_death',
         };
 
         // === UTILITY FUNCTIONS ===
@@ -265,18 +375,18 @@
         }
 
         function getNextConnectedPlayer(currentNum) {
-            // Get list of connected player numbers
-            const connectedNums = currentPlayerList
-                .filter(p => p.connected)
+            // Get list of connected and alive player numbers
+            const activeNums = currentPlayerList
+                .filter(p => p.connected && playerAlive[p.num])
                 .map(p => p.num)
                 .sort((a, b) => a - b);
 
-            if (connectedNums.length === 0) return currentNum;
+            if (activeNums.length === 0) return currentNum;
 
-            // Find next connected player after currentNum
-            const currentIndex = connectedNums.indexOf(currentNum);
-            const nextIndex = (currentIndex + 1) % connectedNums.length;
-            return connectedNums[nextIndex];
+            // Find next active player after currentNum
+            const currentIndex = activeNums.indexOf(currentNum);
+            const nextIndex = (currentIndex + 1) % activeNums.length;
+            return activeNums[nextIndex];
         }
 
         function consumeAction() {
@@ -293,8 +403,36 @@
             return true;
         }
 
+        function processEndOfTurn(playerNum) {
+            const player = players[playerNum];
+            if (!player) return;
+
+            // Discard all cards in effect zone (insomnia, kill cards, etc.)
+            while (player.effect.cards.length > 0) {
+                const card = player.effect.cards.pop();
+                piles.discard.cards.push(card);
+            }
+            layoutCardsInZone(player.effect);
+            layoutCardsInZone(piles.discard);
+        }
+
         function advanceTurn() {
-            turnState.currentPlayerNum = getNextConnectedPlayer(turnState.currentPlayerNum);
+            // Process end of turn effects for current player
+            processEndOfTurn(turnState.currentPlayerNum);
+
+            currentTurnNumber++;
+
+            let nextPlayer = getNextConnectedPlayer(turnState.currentPlayerNum);
+
+            // Keep advancing if player's turn is skipped (tied up)
+            while (processStartOfTurn(nextPlayer)) {
+                nextPlayer = getNextConnectedPlayer(nextPlayer);
+            }
+
+            // Process bounty progression for the new current player
+            processBountyProgression(nextPlayer);
+
+            turnState.currentPlayerNum = nextPlayer;
             turnState.actionsRemaining = 3;
             updateTurnUI();
         }
@@ -309,6 +447,62 @@
         }
 
         // === ACTION EXECUTION ===
+
+        function getCardCost(card) {
+            const def = CARD_DEFS.find(d => d.name === card.userData.name);
+            return def?.cost ?? 0;
+        }
+
+        function getCardValue(card) {
+            const def = CARD_DEFS.find(d => d.name === card.userData.name);
+            return def ? (BACK_VALUES[def.back] ?? 0) : 0;
+        }
+
+        function selectPayment(bankCards, cost) {
+            if (cost <= 0) return [];
+
+            const cardsWithValues = bankCards.map(card => ({
+                card,
+                value: getCardValue(card)
+            }));
+
+            const totalBankValue = cardsWithValues.reduce((sum, c) => sum + c.value, 0);
+            if (totalBankValue < cost) return null;
+
+            let bestSubset = null;
+            let bestCount = -1;
+            let bestTotal = Infinity;
+
+            const n = cardsWithValues.length;
+            for (let mask = 1; mask < (1 << n); mask++) {
+                const subset = [];
+                let total = 0;
+                for (let i = 0; i < n; i++) {
+                    if (mask & (1 << i)) {
+                        subset.push(cardsWithValues[i].card);
+                        total += cardsWithValues[i].value;
+                    }
+                }
+
+                if (total >= cost) {
+                    const isExact = (total === cost);
+                    const bestIsExact = (bestTotal === cost);
+
+                    const isBetter =
+                        (isExact && !bestIsExact) ||                          // Exact beats non-exact
+                        (isExact === bestIsExact && total < bestTotal) ||     // Lower total wins
+                        (total === bestTotal && subset.length > bestCount);   // More cards as tiebreaker
+
+                    if (isBetter) {
+                        bestSubset = subset;
+                        bestCount = subset.length;
+                        bestTotal = total;
+                    }
+                }
+            }
+
+            return bestSubset;
+        }
 
         function executeDraw() {
             // Get top card from draw pile
@@ -345,21 +539,1390 @@
         }
 
         function executePlay(card, sourceZone) {
-            // Move card from hand to discard
+            const cost = getCardCost(card);
+            const cardName = card.userData.name;
+
+            if (cost > 0) {
+                const myBank = players[myPlayerNumber].bank;
+                const payment = selectPayment(myBank.cards, cost);
+
+                if (payment === null) {
+                    return false;
+                }
+
+                for (const payCard of payment) {
+                    removeCardFromZones(payCard);
+                    piles.discard.cards.push(payCard);
+                }
+                layoutCardsInZone(myBank);
+            }
+
             removeCardFromZones(card);
             piles.discard.cards.push(card);
 
             layoutCardsInZone(sourceZone);
             layoutCardsInZone(piles.discard);
 
-            consumeAction();
-            sendStateUpdate();
+            // Define card categories
+            const immediateEffects = ['greed', 'insomnia'];
+            const markTargetingCards = ['unmasked', 'alter ego', 'body swap'];
+            const playerTargetingCards = ['tied up', 'arson'];
+            const killCards = ['backfire', 'counterfeit', 'bloodshot', 'heavy hand', 'gold digger', 'red handed'];
+            const bountyCards = ['hearts bounty', 'spades bounty', 'clubs bounty', 'diamonds bounty'];
+            const specialCards = ['trade off', 'upheaval'];
+
+            if (killCards.includes(cardName)) {
+                // Kill cards - initiate targeting, no reaction window (lethal)
+                consumeAction();
+                sendStateUpdate();
+                initiateKill(myPlayerNumber, card);
+            } else if (markTargetingCards.includes(cardName)) {
+                // Initiate targeting flow - action consumed after effect resolves
+                consumeAction();
+                sendStateUpdate();
+
+                switch (cardName) {
+                    case 'unmasked':
+                        initiateUnmasked(myPlayerNumber, card);
+                        break;
+                    case 'alter ego':
+                        initiateAlterEgo(myPlayerNumber, card);
+                        break;
+                    case 'body swap':
+                        initiateBodySwap(myPlayerNumber, card);
+                        break;
+                }
+            } else if (playerTargetingCards.includes(cardName)) {
+                // Player targeting cards with reaction window
+                consumeAction();
+                sendStateUpdate();
+
+                switch (cardName) {
+                    case 'tied up':
+                        initiateTiedUp(myPlayerNumber, card);
+                        break;
+                    case 'arson':
+                        initiateArson(myPlayerNumber, card);
+                        break;
+                }
+            } else if (specialCards.includes(cardName)) {
+                consumeAction();
+                sendStateUpdate();
+
+                switch (cardName) {
+                    case 'trade off':
+                        initiateTradeOff(myPlayerNumber, card);
+                        break;
+                    case 'upheaval':
+                        initiateUpheaval(myPlayerNumber, card);
+                        break;
+                }
+            } else if (bountyCards.includes(cardName)) {
+                // Bounty cards - immediate effect, no reaction
+                initiateBounty(myPlayerNumber, card);
+                consumeAction();
+                sendStateUpdate();
+            } else if (immediateEffects.includes(cardName)) {
+                // Execute immediately without reaction window
+                executeCardEffect(card, myPlayerNumber, null);
+                consumeAction();
+                sendStateUpdate();
+            } else {
+                // Other cards (snub, blind spot, revenge are reaction cards - shouldn't be played directly)
+                consumeAction();
+                sendStateUpdate();
+            }
+
             return true;
+        }
+
+        function isLethalCard(cardName) {
+            const lethalCards = ['backfire', 'counterfeit', 'bloodshot', 'heavy hand', 'gold digger', 'red handed'];
+            return lethalCards.includes(cardName);
         }
 
         function isOwnZone(zone) {
             if (!zone || !myPlayerNumber) return false;
             return zone.player === myPlayerNumber;
+        }
+
+        function shouldShowFaceUp(card, zone) {
+            if (!zone) return card.userData.faceUp;
+
+            // Discard pile - always face-up
+            if (zone.id === 'discard') return true;
+
+            // Bounty pile - always face-up
+            if (zone.id === 'bounty') return true;
+
+            // Bank zones - always face-down
+            if (zone.type === 'bank') return false;
+
+            // Effect zones - always face-up (active effects are public)
+            if (zone.type === 'effect') return true;
+
+            // Mark zones - check knowledge
+            if (zone.type === 'mark') {
+                // Dead players' marks are revealed to everyone
+                if (!playerAlive[zone.player]) return true;
+
+                // Check if current player knows this mark
+                const myKnowledge = knownMarks[myPlayerNumber];
+                if (myKnowledge && myKnowledge.has(zone.player)) {
+                    return true;
+                }
+                return false;
+            }
+
+            // Draw pile - always face-down
+            if (zone.id === 'draw') return false;
+
+            // Extra mark - always face-down
+            if (zone.id === 'extra-mark') return false;
+
+            // Hand zones - face-up only for owner
+            if (zone.type === 'hand') {
+                return zone.player === myPlayerNumber;
+            }
+
+            // Default: use logical state
+            return card.userData.faceUp;
+        }
+
+        // === REACTION SYSTEM ===
+
+        function startReactionWindow(card, playerId, targetId, effectType, isLethal = false) {
+            const cardIndex = cards.indexOf(card);
+
+            reactionState = {
+                active: true,
+                card: card,
+                cardIndex: cardIndex,
+                playerId: playerId,
+                targetId: targetId,
+                timeRemaining: 5000,
+                eligibleReactors: [],
+                responses: {},
+                startTime: Date.now(),
+                effectType: effectType,
+                isLethal: isLethal
+            };
+
+            // Determine who can react (based on effect type)
+            if (!isLethal) {
+                // Check each player for Snub + enough bank value
+                for (let pNum = 1; pNum <= 4; pNum++) {
+                    if (pNum === playerId) continue;
+                    if (!playerAlive[pNum]) continue;
+                    if (!currentPlayerList.find(p => p.num === pNum && p.connected)) continue;
+
+                    if (canPlayerReact(pNum, 'snub')) {
+                        reactionState.eligibleReactors.push(pNum);
+                    }
+                }
+            }
+
+            // For peek effects, target can use blindspot or revenge
+            if (effectType === 'peek' && targetId) {
+                if (canPlayerReact(targetId, 'blind spot')) {
+                    if (!reactionState.eligibleReactors.includes(targetId)) {
+                        reactionState.eligibleReactors.push(targetId);
+                    }
+                }
+                if (canPlayerReact(targetId, 'revenge')) {
+                    if (!reactionState.eligibleReactors.includes(targetId)) {
+                        reactionState.eligibleReactors.push(targetId);
+                    }
+                }
+            }
+
+            // Show overlay
+            showReactionOverlay();
+
+            // Start countdown
+            updateReactionTimer();
+
+            // Broadcast to all players
+            if (isHost) {
+                broadcastReactionStart();
+            } else {
+                sendReactionStartToHost();
+            }
+        }
+
+        function canPlayerReact(playerNum, cardName) {
+            const player = players[playerNum];
+            if (!player) return false;
+
+            // Check if player has the card in hand
+            const hasCard = player.hand.cards.some(c => c.userData.name === cardName);
+            if (!hasCard) return false;
+
+            // Check if player can afford the cost
+            const cardDef = CARD_DEFS.find(d => d.name === cardName);
+            const cost = cardDef?.cost || 0;
+            const bankValue = player.bank.cards.reduce((sum, c) => sum + getCardValue(c), 0);
+
+            return bankValue >= cost;
+        }
+
+        function showReactionOverlay() {
+            const overlay = document.getElementById('reaction-overlay');
+            overlay.classList.remove('hidden');
+
+            // Show card info
+            const cardDisplay = document.getElementById('reaction-card-display');
+            cardDisplay.innerHTML = `<div style="color:white;text-align:center;">
+                <div style="font-size:24px;">${reactionState.card.userData.name}</div>
+                <div style="font-size:14px;margin-top:10px;">Played by Player ${reactionState.playerId}</div>
+            </div>`;
+
+            // Show appropriate prompt
+            const buttons = document.getElementById('reaction-buttons');
+            const waiting = document.getElementById('reaction-waiting');
+            const message = document.getElementById('reaction-message');
+
+            if (reactionState.eligibleReactors.includes(myPlayerNumber)) {
+                message.textContent = 'You can react to this card!';
+                buttons.style.display = 'flex';
+                waiting.style.display = 'none';
+            } else {
+                message.textContent = 'Waiting for reactions...';
+                buttons.style.display = 'none';
+                waiting.style.display = 'block';
+            }
+        }
+
+        function hideReactionOverlay() {
+            const overlay = document.getElementById('reaction-overlay');
+            overlay.classList.add('hidden');
+        }
+
+        function updateReactionTimer() {
+            if (!reactionState.active) return;
+
+            const elapsed = Date.now() - reactionState.startTime;
+            const remaining = Math.max(0, 5000 - elapsed);
+            reactionState.timeRemaining = remaining;
+
+            const timerEl = document.getElementById('reaction-timer');
+            timerEl.textContent = (remaining / 1000).toFixed(1);
+
+            if (remaining > 0) {
+                requestAnimationFrame(updateReactionTimer);
+            } else {
+                resolveReaction();
+            }
+        }
+
+        function sendReactionResponse(response) {
+            reactionState.responses[myPlayerNumber] = response;
+
+            // Hide buttons, show waiting
+            const buttons = document.getElementById('reaction-buttons');
+            const waiting = document.getElementById('reaction-waiting');
+            buttons.style.display = 'none';
+            waiting.style.display = 'block';
+            waiting.textContent = 'Response sent, waiting...';
+
+            // Send to host/broadcast
+            if (isHost) {
+                checkAllReactionsReceived();
+            } else if (hostConnection?.open) {
+                hostConnection.send({
+                    type: MSG.REACTION_RESPONSE,
+                    playerId: myPlayerNumber,
+                    response: response
+                });
+            }
+        }
+
+        function checkAllReactionsReceived() {
+            // Check if all eligible reactors have responded
+            const allResponded = reactionState.eligibleReactors.every(
+                pNum => reactionState.responses[pNum] !== undefined
+            );
+
+            if (allResponded) {
+                resolveReaction();
+            }
+        }
+
+        function resolveReaction() {
+            if (!reactionState.active) return;
+
+            reactionState.active = false;
+            hideReactionOverlay();
+
+            // Check if anyone reacted
+            const reactor = Object.entries(reactionState.responses).find(([_, r]) => r === 'react');
+
+            if (reactor) {
+                // Someone blocked - handle the reaction
+                handleReactionBlock(parseInt(reactor[0]));
+            } else {
+                // No block - execute the effect
+                executeCardEffect(reactionState.card, reactionState.playerId, reactionState.targetId);
+            }
+
+            // Broadcast resolution
+            if (isHost) {
+                broadcastReactionResolve(reactor ? parseInt(reactor[0]) : null);
+            }
+        }
+
+        function broadcastReactionStart() {
+            const message = {
+                type: MSG.REACTION_START,
+                cardIndex: reactionState.cardIndex,
+                playerId: reactionState.playerId,
+                targetId: reactionState.targetId,
+                effectType: reactionState.effectType,
+                isLethal: reactionState.isLethal,
+                eligibleReactors: reactionState.eligibleReactors
+            };
+
+            for (const conn of connections.values()) {
+                if (conn.open) conn.send(message);
+            }
+        }
+
+        function sendReactionStartToHost() {
+            // Client tells host to start reaction
+            if (hostConnection?.open) {
+                hostConnection.send({
+                    type: MSG.REACTION_START,
+                    cardIndex: reactionState.cardIndex,
+                    playerId: reactionState.playerId,
+                    targetId: reactionState.targetId,
+                    effectType: reactionState.effectType,
+                    isLethal: reactionState.isLethal
+                });
+            }
+        }
+
+        function broadcastReactionResolve(reactorId) {
+            const message = {
+                type: MSG.REACTION_RESOLVE,
+                reactorId: reactorId,
+                cardIndex: reactionState.cardIndex
+            };
+
+            for (const conn of connections.values()) {
+                if (conn.open) conn.send(message);
+            }
+        }
+
+        function handleReactionBlock(reactorPlayerNum) {
+            // Find which reaction card was used
+            const player = players[reactorPlayerNum];
+            let reactionCard = null;
+            let reactionType = null;
+
+            // Determine which card was used based on effect type
+            if (reactionState.effectType === 'peek') {
+                // Could be blindspot or revenge
+                reactionCard = player.hand.cards.find(c => c.userData.name === 'blind spot');
+                if (reactionCard) {
+                    reactionType = 'blindspot';
+                } else {
+                    reactionCard = player.hand.cards.find(c => c.userData.name === 'revenge');
+                    reactionType = 'revenge';
+                }
+            } else {
+                // Must be snub
+                reactionCard = player.hand.cards.find(c => c.userData.name === 'snub');
+                reactionType = 'snub';
+            }
+
+            if (!reactionCard) return;
+
+            // Pay cost and discard reaction card
+            const cardDef = CARD_DEFS.find(d => d.name === reactionCard.userData.name);
+            const cost = cardDef?.cost || 0;
+
+            if (cost > 0) {
+                const payment = selectPayment(player.bank.cards, cost);
+                if (payment) {
+                    for (const payCard of payment) {
+                        removeCardFromZones(payCard);
+                        piles.discard.cards.push(payCard);
+                    }
+                    layoutCardsInZone(player.bank);
+                }
+            }
+
+            removeCardFromZones(reactionCard);
+            piles.discard.cards.push(reactionCard);
+            layoutCardsInZone(player.hand);
+            layoutCardsInZone(piles.discard);
+
+            // Handle revenge special case - counter-peek
+            if (reactionType === 'revenge' && reactionState.effectType === 'peek') {
+                // Both players learn each other's marks
+                addMarkKnowledge(reactionState.playerId, reactionState.targetId);
+                addMarkKnowledge(reactionState.targetId, reactionState.playerId);
+            }
+
+            sendStateUpdate();
+        }
+
+        function executeCardEffect(card, playerId, targetId) {
+            // This will be expanded in later phases
+            const cardName = card.userData.name;
+
+            // Dispatch to specific effect handler
+            switch (cardName) {
+                case 'greed':
+                    executeGreed(playerId);
+                    break;
+                case 'insomnia':
+                    executeInsomnia(playerId, card);
+                    break;
+                case 'unmasked':
+                    executeUnmasked(playerId, targetId);
+                    break;
+                case 'alter ego':
+                    executeAlterEgo(playerId, targetId);
+                    break;
+                case 'body swap':
+                    executeBodySwap(playerId, targetId, reactionState.secondTarget);
+                    break;
+                case 'tied up':
+                    executeTiedUp(playerId, targetId, card);
+                    break;
+                case 'arson':
+                    executeArson(playerId, targetId);
+                    break;
+                case 'trade off':
+                    executeTradeOff(playerId);
+                    break;
+                case 'upheaval':
+                    executeUpheaval(playerId);
+                    break;
+                case 'hearts bounty':
+                case 'spades bounty':
+                case 'clubs bounty':
+                case 'diamonds bounty':
+                    // Bounty effects handled separately in executeBounty
+                    break;
+                default:
+                    console.log(`Effect not implemented: ${cardName}`);
+            }
+        }
+
+        function executeGreed(playerId) {
+            // Draw 2 cards for the player
+            const player = players[playerId];
+            if (!player) return;
+
+            // Draw first card
+            if (piles.draw.cards.length > 0) {
+                const card1 = piles.draw.cards.pop();
+                card1.userData.faceUp = true;
+                player.hand.cards.push(card1);
+            }
+
+            // Draw second card
+            if (piles.draw.cards.length > 0) {
+                const card2 = piles.draw.cards.pop();
+                card2.userData.faceUp = true;
+                player.hand.cards.push(card2);
+            }
+
+            layoutCardsInZone(piles.draw);
+            layoutCardsInZone(player.hand);
+            sendStateUpdate();
+        }
+
+        function executeInsomnia(playerId, card) {
+            // Move insomnia card to effect zone, grant 3 extra actions
+            const player = players[playerId];
+            if (!player) return;
+
+            // Find the insomnia card that was just played (should be in discard)
+            const insomniaCard = card || piles.discard.cards.find(c => c.userData.name === 'insomnia');
+            if (insomniaCard) {
+                removeCardFromZones(insomniaCard);
+                player.effect.cards.push(insomniaCard);
+                layoutCardsInZone(piles.discard);
+                layoutCardsInZone(player.effect);
+            }
+
+            // Grant 3 additional actions
+            turnState.actionsRemaining += 3;
+            updateTurnUI();
+            sendStateUpdate();
+        }
+
+        // === MARK MANIPULATION EFFECTS ===
+
+        function initiateUnmasked(playerId, card) {
+            // Get valid targets (other alive players)
+            const validTargets = [];
+            for (let pNum = 1; pNum <= 4; pNum++) {
+                if (pNum === playerId) continue;
+                if (!playerAlive[pNum]) continue;
+                if (!currentPlayerList.find(p => p.num === pNum && p.connected)) continue;
+                validTargets.push(pNum);
+            }
+
+            if (validTargets.length === 0) {
+                console.log('No valid targets for Unmasked');
+                return;
+            }
+
+            // Enter targeting mode
+            enterTargetingMode('mark', validTargets, (targetPlayerNum) => {
+                // Start reaction window
+                startReactionWindow(card, playerId, targetPlayerNum, 'peek', false);
+            });
+        }
+
+        function executeUnmasked(playerId, targetId) {
+            // Add mark knowledge
+            addMarkKnowledge(playerId, targetId);
+            sendStateUpdate();
+        }
+
+        function initiateAlterEgo(playerId, card) {
+            // Get valid targets (any alive player including self)
+            const validTargets = [];
+            for (let pNum = 1; pNum <= 4; pNum++) {
+                if (!playerAlive[pNum]) continue;
+                if (!currentPlayerList.find(p => p.num === pNum && p.connected)) continue;
+                validTargets.push(pNum);
+            }
+
+            if (validTargets.length === 0) return;
+
+            // Enter targeting mode for mark selection
+            enterTargetingMode('mark', validTargets, (targetPlayerNum) => {
+                // Start reaction window
+                startReactionWindow(card, playerId, targetPlayerNum, 'swap_extra', false);
+            });
+        }
+
+        function executeAlterEgo(playerId, targetId) {
+            const targetMarkZone = players[targetId].mark;
+            const extraMarkZone = piles.extraMark;
+
+            if (targetMarkZone.cards.length === 0 || extraMarkZone.cards.length === 0) return;
+
+            // Swap the cards
+            const targetMark = targetMarkZone.cards[0];
+            const extraMark = extraMarkZone.cards[0];
+
+            targetMarkZone.cards[0] = extraMark;
+            extraMarkZone.cards[0] = targetMark;
+
+            // Invalidate mark knowledge for this player
+            invalidateMarkKnowledge(targetId);
+
+            layoutCardsInZone(targetMarkZone);
+            layoutCardsInZone(extraMarkZone);
+            sendStateUpdate();
+        }
+
+        function invalidateMarkKnowledge(targetPlayerId) {
+            // Anyone who knew this mark no longer knows it
+            for (const viewerId of Object.keys(knownMarks)) {
+                if (knownMarks[viewerId]) {
+                    knownMarks[viewerId].delete(targetPlayerId);
+                }
+            }
+
+            if (isHost) {
+                broadcastMarkKnowledge();
+            }
+        }
+
+        let bodySwapFirstTarget = null;
+
+        function initiateBodySwap(playerId, card) {
+            bodySwapFirstTarget = null;
+
+            // Get valid targets (any alive player)
+            const validTargets = [];
+            for (let pNum = 1; pNum <= 4; pNum++) {
+                if (!playerAlive[pNum]) continue;
+                if (!currentPlayerList.find(p => p.num === pNum && p.connected)) continue;
+                validTargets.push(pNum);
+            }
+
+            if (validTargets.length < 2) return;
+
+            // Enter targeting mode for first mark
+            enterTargetingMode('mark', validTargets, (firstTarget) => {
+                bodySwapFirstTarget = firstTarget;
+
+                // Enter targeting mode for second mark (exclude first)
+                const secondTargets = validTargets.filter(t => t !== firstTarget);
+                enterTargetingMode('mark', secondTargets, (secondTarget) => {
+                    // Start reaction window
+                    startReactionWindow(card, playerId, firstTarget, 'swap_marks', false);
+                    // Store second target for resolution
+                    reactionState.secondTarget = secondTarget;
+                });
+            });
+        }
+
+        function executeBodySwap(playerId, target1, target2) {
+            const mark1Zone = players[target1].mark;
+            const mark2Zone = players[target2].mark;
+
+            if (mark1Zone.cards.length === 0 || mark2Zone.cards.length === 0) return;
+
+            // Swap the cards
+            const mark1 = mark1Zone.cards[0];
+            const mark2 = mark2Zone.cards[0];
+
+            mark1Zone.cards[0] = mark2;
+            mark2Zone.cards[0] = mark1;
+
+            // Invalidate mark knowledge for both players
+            invalidateMarkKnowledge(target1);
+            invalidateMarkKnowledge(target2);
+
+            layoutCardsInZone(mark1Zone);
+            layoutCardsInZone(mark2Zone);
+            sendStateUpdate();
+        }
+
+        function addMarkKnowledge(viewerPlayerId, targetPlayerId) {
+            if (!knownMarks[viewerPlayerId]) {
+                knownMarks[viewerPlayerId] = new Set();
+            }
+            knownMarks[viewerPlayerId].add(targetPlayerId);
+
+            // Broadcast update
+            if (isHost) {
+                broadcastMarkKnowledge();
+            }
+
+            // Refresh card visuals
+            for (const zone of zones) {
+                if (zone.type === 'mark') {
+                    layoutCardsInZone(zone);
+                }
+            }
+        }
+
+        function broadcastMarkKnowledge() {
+            // Convert Sets to arrays for JSON serialization
+            const serialized = {};
+            for (const [viewerId, targets] of Object.entries(knownMarks)) {
+                serialized[viewerId] = Array.from(targets);
+            }
+
+            const message = {
+                type: MSG.MARK_KNOWLEDGE_UPDATE,
+                knownMarks: serialized
+            };
+
+            for (const conn of connections.values()) {
+                if (conn.open) conn.send(message);
+            }
+        }
+
+        // === PHASE 4: KILL CARDS ===
+
+        function getPlayerHandCards(playerNum) {
+            return players[playerNum]?.hand.cards || [];
+        }
+
+        function getPlayerBankCards(playerNum) {
+            return players[playerNum]?.bank.cards || [];
+        }
+
+        function isRedCard(card) {
+            const def = CARD_DEFS.find(d => d.name === card.userData.name);
+            return def?.back === 54; // Red back index
+        }
+
+        function countRedCardsInHand(playerNum) {
+            return getPlayerHandCards(playerNum).filter(isRedCard).length;
+        }
+
+        function hasRedCardsInHand(playerNum, minCount) {
+            return countRedCardsInHand(playerNum) >= minCount;
+        }
+
+        function hasAnyRedCardInHand(playerNum) {
+            return countRedCardsInHand(playerNum) > 0;
+        }
+
+        function hasCardsInHand(playerNum, minCount) {
+            return getPlayerHandCards(playerNum).length >= minCount;
+        }
+
+        function hasCardsInBank(playerNum, minCount) {
+            return getPlayerBankCards(playerNum).length >= minCount;
+        }
+
+        function getValidKillTargets(cardName) {
+            const validTargets = [];
+
+            for (let pNum = 1; pNum <= 4; pNum++) {
+                if (pNum === myPlayerNumber) continue;
+                if (!playerAlive[pNum]) continue;
+                if (!currentPlayerList.find(p => p.num === pNum && p.connected)) continue;
+
+                let meetsCondition = false;
+
+                switch (cardName) {
+                    case 'red handed':
+                        meetsCondition = hasRedCardsInHand(pNum, 2);
+                        break;
+                    case 'counterfeit':
+                        meetsCondition = hasCardsInBank(pNum, 6);
+                        break;
+                    case 'heavy hand':
+                        meetsCondition = hasCardsInHand(pNum, 6);
+                        break;
+                    case 'backfire':
+                        meetsCondition = hasCardsInHand(pNum, 5);
+                        break;
+                    case 'bloodshot':
+                        meetsCondition = hasAnyRedCardInHand(pNum);
+                        break;
+                    case 'gold digger':
+                        meetsCondition = hasCardsInBank(pNum, 5);
+                        break;
+                }
+
+                if (meetsCondition) {
+                    validTargets.push(pNum);
+                }
+            }
+
+            return validTargets;
+        }
+
+        function initiateKill(playerId, card) {
+            const cardName = card.userData.name;
+            const validTargets = getValidKillTargets(cardName);
+
+            if (validTargets.length === 0) {
+                console.log('No valid targets for kill card');
+                return;
+            }
+
+            enterTargetingMode('player', validTargets, (targetPlayerNum) => {
+                // Kill cards are lethal - no reaction window
+                executeKill(playerId, targetPlayerNum, card);
+            });
+        }
+
+        function executeKill(killerNum, victimNum, killCard) {
+            // 1. Collect victim's cards and sort by value
+            const victimHand = players[victimNum].hand.cards.slice();
+            const victimBank = players[victimNum].bank.cards.slice();
+            const allVictimCards = [...victimHand, ...victimBank];
+
+            // Sort by back value (descending)
+            allVictimCards.sort((a, b) => getCardValue(b) - getCardValue(a));
+
+            // 2. Take top 2 cards to killer's bank
+            const cardsToTake = allVictimCards.slice(0, 2);
+            const killerBank = players[killerNum].bank;
+
+            for (const card of cardsToTake) {
+                removeCardFromZones(card);
+                killerBank.cards.push(card);
+            }
+
+            // 3. Move remaining victim cards to discard
+            for (const card of allVictimCards.slice(2)) {
+                removeCardFromZones(card);
+                piles.discard.cards.push(card);
+            }
+
+            // 4. Move kill card to killer's effect zone
+            const killerEffect = players[killerNum].effect;
+            // Card should already be in discard from executePlay
+            const discardIndex = piles.discard.cards.indexOf(killCard);
+            if (discardIndex !== -1) {
+                piles.discard.cards.splice(discardIndex, 1);
+            }
+            killerEffect.cards.push(killCard);
+
+            // 5. Mark victim as dead
+            playerAlive[victimNum] = false;
+
+            // 6. Grant killer 2 bonus actions
+            turnState.actionsRemaining += 2;
+
+            // 7. Layout all affected zones
+            layoutCardsInZone(players[victimNum].hand);
+            layoutCardsInZone(players[victimNum].bank);
+            layoutCardsInZone(players[victimNum].mark); // Will show face-up now
+            layoutCardsInZone(killerBank);
+            layoutCardsInZone(killerEffect);
+            layoutCardsInZone(piles.discard);
+
+            updateTurnUI();
+
+            // 8. Check win condition
+            checkVictory();
+
+            sendStateUpdate();
+        }
+
+        function checkVictory() {
+            const alivePlayers = Object.entries(playerAlive)
+                .filter(([_, alive]) => alive)
+                .map(([num, _]) => parseInt(num));
+
+            // Only check among connected players
+            const connectedAlivePlayers = alivePlayers.filter(pNum =>
+                currentPlayerList.find(p => p.num === pNum && p.connected)
+            );
+
+            if (connectedAlivePlayers.length === 1) {
+                const winner = connectedAlivePlayers[0];
+                showVictoryScreen(winner);
+            }
+        }
+
+        function showVictoryScreen(winnerNum) {
+            const winnerName = currentPlayerList.find(p => p.num === winnerNum)?.name || `Player ${winnerNum}`;
+
+            const overlay = document.createElement('div');
+            overlay.id = 'victory-overlay';
+            overlay.style.cssText = `
+                position: fixed;
+                inset: 0;
+                background: rgba(0,0,0,0.9);
+                z-index: 1000;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                color: white;
+            `;
+            overlay.innerHTML = `
+                <h1 style="font-size: 48px; margin-bottom: 20px;">Victory!</h1>
+                <p style="font-size: 24px; margin-bottom: 40px;">${winnerName} wins!</p>
+                <button id="play-again-btn" style="padding: 15px 30px; font-size: 18px; cursor: pointer;">
+                    Play Again
+                </button>
+            `;
+            document.body.appendChild(overlay);
+
+            document.getElementById('play-again-btn').addEventListener('click', () => {
+                location.reload();
+            });
+        }
+
+        // === PHASE 5: TRADE & DISRUPTION ===
+
+        let tradeOffFirstCard = null;
+
+        function initiateTradeOff(playerId, card) {
+            const player = players[playerId];
+
+            // Must have at least 1 other card in hand
+            const otherHandCards = player.hand.cards.filter(c => c !== card);
+            if (otherHandCards.length === 0) {
+                console.log('No other cards in hand for Trade Off');
+                return;
+            }
+
+            // Get valid cards from own hand (excluding trade off which is in discard now)
+            const ownHandIndices = player.hand.cards.map(c => cards.indexOf(c));
+
+            enterTargetingMode('card', ownHandIndices, (ownCardIndex) => {
+                tradeOffFirstCard = cards[ownCardIndex];
+
+                // Get valid target cards (any opponent's hand or bank)
+                const targetCardIndices = [];
+                for (let pNum = 1; pNum <= 4; pNum++) {
+                    if (pNum === playerId) continue;
+                    if (!playerAlive[pNum]) continue;
+
+                    const opponentHand = players[pNum].hand.cards;
+                    const opponentBank = players[pNum].bank.cards;
+
+                    for (const c of opponentHand) {
+                        targetCardIndices.push(cards.indexOf(c));
+                    }
+                    for (const c of opponentBank) {
+                        targetCardIndices.push(cards.indexOf(c));
+                    }
+                }
+
+                if (targetCardIndices.length === 0) {
+                    console.log('No valid targets for Trade Off');
+                    tradeOffFirstCard = null;
+                    return;
+                }
+
+                enterTargetingMode('card', targetCardIndices, (targetCardIndex) => {
+                    const targetCard = cards[targetCardIndex];
+                    // Start reaction window
+                    startReactionWindow(card, playerId, null, 'trade', false);
+                    reactionState.tradeCards = { own: tradeOffFirstCard, target: targetCard };
+                });
+            });
+        }
+
+        function executeTradeOff(playerId) {
+            const { own, target } = reactionState.tradeCards || {};
+            if (!own || !target) return;
+
+            const ownZone = findCardZone(own);
+            const targetZone = findCardZone(target);
+
+            if (!ownZone || !targetZone) return;
+
+            // Swap cards between zones
+            const ownIndex = ownZone.cards.indexOf(own);
+            const targetIndex = targetZone.cards.indexOf(target);
+
+            ownZone.cards[ownIndex] = target;
+            targetZone.cards[targetIndex] = own;
+
+            layoutCardsInZone(ownZone);
+            layoutCardsInZone(targetZone);
+            sendStateUpdate();
+        }
+
+        function initiateTiedUp(playerId, card) {
+            // Get valid targets (other alive players)
+            const validTargets = [];
+            for (let pNum = 1; pNum <= 4; pNum++) {
+                if (pNum === playerId) continue;
+                if (!playerAlive[pNum]) continue;
+                if (!currentPlayerList.find(p => p.num === pNum && p.connected)) continue;
+                validTargets.push(pNum);
+            }
+
+            if (validTargets.length === 0) return;
+
+            enterTargetingMode('player', validTargets, (targetPlayerNum) => {
+                startReactionWindow(card, playerId, targetPlayerNum, 'skip', false);
+            });
+        }
+
+        function executeTiedUp(playerId, targetId, card) {
+            // Move tied up card from discard to target's effect zone
+            const tiedUpCard = card || piles.discard.cards.find(c => c.userData.name === 'tied up');
+            if (tiedUpCard) {
+                removeCardFromZones(tiedUpCard);
+                players[targetId].effect.cards.push(tiedUpCard);
+                layoutCardsInZone(piles.discard);
+                layoutCardsInZone(players[targetId].effect);
+            }
+            sendStateUpdate();
+        }
+
+        function processStartOfTurn(playerNum) {
+            const player = players[playerNum];
+            if (!player) return false;
+
+            // Check for tied up in effect zone
+            const tiedUpIndex = player.effect.cards.findIndex(c => c.userData.name === 'tied up');
+            if (tiedUpIndex !== -1) {
+                const tiedUpCard = player.effect.cards[tiedUpIndex];
+                player.effect.cards.splice(tiedUpIndex, 1);
+                piles.discard.cards.push(tiedUpCard);
+                layoutCardsInZone(player.effect);
+                layoutCardsInZone(piles.discard);
+                sendStateUpdate();
+                return true; // Skip this player's turn
+            }
+
+            return false;
+        }
+
+        function initiateArson(playerId, card) {
+            // Get valid targets (other alive players with banks)
+            const validTargets = [];
+            for (let pNum = 1; pNum <= 4; pNum++) {
+                if (pNum === playerId) continue;
+                if (!playerAlive[pNum]) continue;
+                if (!currentPlayerList.find(p => p.num === pNum && p.connected)) continue;
+                if (players[pNum].bank.cards.length === 0) continue;
+                validTargets.push(pNum);
+            }
+
+            if (validTargets.length === 0) return;
+
+            enterTargetingMode('bank', validTargets, (targetPlayerNum) => {
+                startReactionWindow(card, playerId, targetPlayerNum, 'arson', false);
+            });
+        }
+
+        function executeArson(playerId, targetId) {
+            const targetBank = players[targetId].bank;
+
+            // Move all bank cards to discard
+            while (targetBank.cards.length > 0) {
+                const card = targetBank.cards.pop();
+                piles.discard.cards.push(card);
+            }
+
+            layoutCardsInZone(targetBank);
+            layoutCardsInZone(piles.discard);
+            sendStateUpdate();
+        }
+
+        // === PHASE 6: SPECIAL EFFECTS ===
+
+        function initiateUpheaval(playerId, card) {
+            // Start reaction window first
+            startReactionWindow(card, playerId, null, 'upheaval', false);
+        }
+
+        function executeUpheaval(playerId) {
+            // Show deck spread overlay
+            upheavalState.active = true;
+
+            const overlay = document.createElement('div');
+            overlay.id = 'upheaval-overlay';
+            overlay.style.cssText = `
+                position: fixed;
+                inset: 0;
+                background: rgba(0,0,0,0.8);
+                z-index: 600;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            `;
+
+            const cardsContainer = document.createElement('div');
+            cardsContainer.style.cssText = `
+                display: flex;
+                gap: 2px;
+                position: relative;
+            `;
+
+            const deckSize = piles.draw.cards.length;
+            for (let i = 0; i < deckSize; i++) {
+                const cardEl = document.createElement('div');
+                cardEl.style.cssText = `
+                    width: 40px;
+                    height: 56px;
+                    background: #8B0000;
+                    border: 1px solid #333;
+                    border-radius: 3px;
+                `;
+                cardsContainer.appendChild(cardEl);
+            }
+
+            const splitIndicator = document.createElement('div');
+            splitIndicator.id = 'upheaval-split';
+            splitIndicator.style.cssText = `
+                position: absolute;
+                top: 0;
+                bottom: 0;
+                width: 4px;
+                background: #fff;
+                pointer-events: none;
+                left: 0;
+            `;
+            cardsContainer.appendChild(splitIndicator);
+
+            const instructions = document.createElement('div');
+            instructions.style.cssText = `
+                position: absolute;
+                bottom: -40px;
+                color: white;
+                font-size: 16px;
+                white-space: nowrap;
+            `;
+            instructions.textContent = 'Click to cut the deck';
+            cardsContainer.appendChild(instructions);
+
+            overlay.appendChild(cardsContainer);
+            document.body.appendChild(overlay);
+
+            // Track mouse for split indicator
+            cardsContainer.addEventListener('mousemove', (e) => {
+                const rect = cardsContainer.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const cardWidth = 42; // 40 + 2 gap
+                upheavalState.splitIndex = Math.floor(x / cardWidth);
+                upheavalState.splitIndex = Math.max(1, Math.min(upheavalState.splitIndex, deckSize - 1));
+                splitIndicator.style.left = (upheavalState.splitIndex * cardWidth - 2) + 'px';
+            });
+
+            // Click to cut
+            overlay.addEventListener('click', () => {
+                performDeckCut(upheavalState.splitIndex);
+                overlay.remove();
+                upheavalState.active = false;
+            });
+        }
+
+        function performDeckCut(splitIndex) {
+            const deck = piles.draw.cards;
+            const deckSize = deck.length;
+
+            if (splitIndex <= 0 || splitIndex >= deckSize) return;
+
+            // Split and swap
+            const bottom = deck.slice(0, splitIndex);
+            const top = deck.slice(splitIndex);
+
+            piles.draw.cards = [...top, ...bottom];
+
+            layoutCardsInZone(piles.draw);
+            sendStateUpdate();
+        }
+
+        function initiateBounty(playerId, card) {
+            // No reaction window for bounty play - execute immediately
+            executeBounty(playerId, card);
+        }
+
+        function executeBounty(playerId, card) {
+            const player = players[playerId];
+
+            // 1. Draw 3 cards
+            for (let i = 0; i < 3; i++) {
+                if (piles.draw.cards.length > 0) {
+                    const drawnCard = piles.draw.cards.pop();
+                    drawnCard.userData.faceUp = true;
+                    player.hand.cards.push(drawnCard);
+                }
+            }
+
+            // 2. Move bounty to effect zone (not discard)
+            removeCardFromZones(card);
+            player.effect.cards.push(card);
+
+            // 3. Track bounty state
+            const cardIndex = cards.indexOf(card);
+            bountyState[cardIndex] = {
+                owner: playerId,
+                turnPlayed: currentTurnNumber,
+                inBountyZone: false
+            };
+
+            layoutCardsInZone(piles.draw);
+            layoutCardsInZone(player.hand);
+            layoutCardsInZone(player.effect);
+            sendStateUpdate();
+        }
+
+        function processBountyProgression(playerNum) {
+            const player = players[playerNum];
+            if (!player) return;
+
+            // Check for bounties in effect zone that should move to bounty zone
+            const bountiesToMove = [];
+            for (const card of player.effect.cards) {
+                if (card.userData.name.includes('bounty')) {
+                    const cardIndex = cards.indexOf(card);
+                    const state = bountyState[cardIndex];
+                    if (state && !state.inBountyZone) {
+                        bountiesToMove.push(card);
+                        state.inBountyZone = true;
+                    }
+                }
+            }
+
+            for (const card of bountiesToMove) {
+                removeCardFromZones(card);
+                piles.bounty.cards.push(card);
+            }
+
+            if (bountiesToMove.length > 0) {
+                layoutCardsInZone(player.effect);
+                layoutCardsInZone(piles.bounty);
+            }
+        }
+
+        function initiateBountyUse(playerNum, bountyCard) {
+            // Player uses bounty from bounty zone
+            const validTargets = [];
+            for (let pNum = 1; pNum <= 4; pNum++) {
+                if (!playerAlive[pNum]) continue;
+                if (!currentPlayerList.find(p => p.num === pNum && p.connected)) continue;
+                validTargets.push(pNum);
+            }
+
+            enterTargetingMode('mark', validTargets, (targetPlayerNum) => {
+                executeBountyKill(playerNum, targetPlayerNum, bountyCard);
+            });
+        }
+
+        function executeBountyKill(killerNum, targetNum, bountyCard) {
+            const bountySuit = bountyCard.userData.name.replace(' bounty', '');
+            const targetMarkZone = players[targetNum].mark;
+            const targetMark = targetMarkZone.cards[0];
+            const targetSuit = targetMark?.userData.name.replace(' mark', '');
+
+            // Remove bounty from bounty zone
+            removeCardFromZones(bountyCard);
+            piles.discard.cards.push(bountyCard);
+
+            if (targetSuit === bountySuit) {
+                // Match! Target dies
+                executeKill(killerNum, targetNum, bountyCard);
+            } else {
+                // No match! Killer dies
+                executeKill(targetNum, killerNum, bountyCard);
+            }
+
+            layoutCardsInZone(piles.bounty);
+            layoutCardsInZone(piles.discard);
+            sendStateUpdate();
+        }
+
+        // === TARGETING SYSTEM ===
+
+        function enterTargetingMode(type, validTargets, callback) {
+            targetingState = {
+                active: true,
+                type: type,
+                validTargets: validTargets,
+                callback: callback,
+                highlightMeshes: []
+            };
+
+            // Add visual highlights
+            highlightTargets();
+
+            // Change cursor
+            renderer.domElement.style.cursor = 'crosshair';
+        }
+
+        function exitTargetingMode() {
+            // Remove highlights
+            for (const mesh of targetingState.highlightMeshes) {
+                scene.remove(mesh);
+            }
+
+            targetingState = {
+                active: false,
+                type: null,
+                validTargets: [],
+                callback: null,
+                highlightMeshes: []
+            };
+
+            renderer.domElement.style.cursor = 'default';
+        }
+
+        function highlightTargets() {
+            const highlightMaterial = new THREE.MeshBasicMaterial({
+                color: 0xffffff,
+                side: THREE.DoubleSide
+            });
+
+            if (targetingState.type === 'player' || targetingState.type === 'mark') {
+                // Highlight mark zones for valid player targets
+                for (const playerNum of targetingState.validTargets) {
+                    const markZone = players[playerNum]?.mark;
+                    if (!markZone) continue;
+
+                    // Swap width/height for rotated zones (Player 2 & 4)
+                    const isRotated = markZone.rotation !== 0;
+                    const geoWidth = isRotated ? (markZone.height + 0.5) : (markZone.width + 0.5);
+                    const geoHeight = isRotated ? (markZone.width + 0.5) : (markZone.height + 0.5);
+                    const geometry = new THREE.PlaneGeometry(geoWidth, geoHeight);
+                    const highlight = new THREE.Mesh(geometry, highlightMaterial);
+                    highlight.rotation.x = -Math.PI / 2;
+                    highlight.position.set(markZone.x, -0.005, markZone.z);
+                    highlight.renderOrder = -1;
+                    highlight.userData.targetPlayerNum = playerNum;
+                    scene.add(highlight);
+                    targetingState.highlightMeshes.push(highlight);
+                    console.log('Mark highlight created:', {
+                        position: { x: highlight.position.x, y: highlight.position.y, z: highlight.position.z },
+                        rotation: { x: highlight.rotation.x, y: highlight.rotation.y },
+                        renderOrder: highlight.renderOrder,
+                        zone: markZone.id,
+                        geometryWidth: markZone.width + 0.5,
+                        geometryHeight: markZone.height + 0.5,
+                        inScene: scene.children.includes(highlight),
+                        materialColor: highlightMaterial.color.getHex()
+                    });
+                }
+            }
+
+            if (targetingState.type === 'bank') {
+                // Highlight bank zones for arson-type effects
+                for (const playerNum of targetingState.validTargets) {
+                    const bankZone = players[playerNum]?.bank;
+                    if (!bankZone) continue;
+
+                    // Swap width/height for rotated zones (Player 2 & 4)
+                    const isRotated = bankZone.rotation !== 0;
+                    const geoWidth = isRotated ? (bankZone.height + 0.5) : (bankZone.width + 0.5);
+                    const geoHeight = isRotated ? (bankZone.width + 0.5) : (bankZone.height + 0.5);
+                    const geometry = new THREE.PlaneGeometry(geoWidth, geoHeight);
+                    const highlight = new THREE.Mesh(geometry, highlightMaterial);
+                    highlight.rotation.x = -Math.PI / 2;
+                    highlight.position.set(bankZone.x, -0.005, bankZone.z);
+                    highlight.renderOrder = -1;
+                    highlight.userData.targetPlayerNum = playerNum;
+                    scene.add(highlight);
+                    targetingState.highlightMeshes.push(highlight);
+                }
+            }
+
+            if (targetingState.type === 'card') {
+                // Highlight specific cards
+                for (const cardIndex of targetingState.validTargets) {
+                    const card = cards[cardIndex];
+                    if (!card) continue;
+
+                    // Swap width/height for rotated cards (Player 2 & 4)
+                    const isRotated = Math.abs(card.rotation.y) > 0.1;
+                    const geoWidth = isRotated ? (CARD_HEIGHT + 0.3) : (CARD_WIDTH + 0.3);
+                    const geoHeight = isRotated ? (CARD_WIDTH + 0.3) : (CARD_HEIGHT + 0.3);
+                    const geometry = new THREE.PlaneGeometry(geoWidth, geoHeight);
+                    const highlight = new THREE.Mesh(geometry, highlightMaterial);
+                    highlight.rotation.x = -Math.PI / 2;
+                    highlight.position.copy(card.position);
+                    highlight.position.y = -0.005;
+                    highlight.renderOrder = -1;
+                    highlight.userData.targetCardIndex = cardIndex;
+                    scene.add(highlight);
+                    targetingState.highlightMeshes.push(highlight);
+                    console.log('Card highlight created:', {
+                        position: { x: highlight.position.x, y: highlight.position.y, z: highlight.position.z },
+                        cardPosition: { x: card.position.x, y: card.position.y, z: card.position.z },
+                        rotation: { x: highlight.rotation.x, y: highlight.rotation.y },
+                        renderOrder: highlight.renderOrder
+                    });
+                }
+            }
+        }
+
+        function handleTargetClick(event) {
+            if (!targetingState.active) return false;
+
+            updateMouse(event);
+            raycaster.setFromCamera(mouse, camera);
+
+            // Check highlights first
+            const highlightIntersects = raycaster.intersectObjects(targetingState.highlightMeshes);
+            if (highlightIntersects.length > 0) {
+                const hit = highlightIntersects[0].object;
+
+                if (hit.userData.targetPlayerNum !== undefined) {
+                    const callback = targetingState.callback;
+                    const target = hit.userData.targetPlayerNum;
+                    exitTargetingMode();
+                    callback(target);
+                    return true;
+                }
+
+                if (hit.userData.targetCardIndex !== undefined) {
+                    const callback = targetingState.callback;
+                    const target = hit.userData.targetCardIndex;
+                    exitTargetingMode();
+                    callback(target);
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         // === GAME SETUP ===
@@ -408,7 +1971,6 @@
 
                 // Face down for connected players, face up for disconnected
                 markCard.userData.faceUp = !isConnected;
-                markCard.rotation.z = isConnected ? Math.PI : 0;
 
                 markZone.cards.push(markCard);
                 layoutCardsInZone(markZone, false);
@@ -417,7 +1979,6 @@
             // Deal 5th mark to extra-mark zone (face down)
             const extraMarkCard = markCards[4];
             extraMarkCard.userData.faceUp = false;
-            extraMarkCard.rotation.z = Math.PI;
             piles.extraMark.cards.push(extraMarkCard);
             layoutCardsInZone(piles.extraMark, false);
 
@@ -432,7 +1993,6 @@
                     if (deckIndex < mainDeck.length) {
                         const card = mainDeck[deckIndex];
                         card.userData.faceUp = true;
-                        card.rotation.z = 0;
                         playerHand.cards.push(card);
                         deckIndex++;
                     }
@@ -444,7 +2004,6 @@
             for (let i = deckIndex; i < mainDeck.length; i++) {
                 const card = mainDeck[i];
                 card.userData.faceUp = false;
-                card.rotation.z = Math.PI;
                 piles.draw.cards.push(card);
             }
             layoutCardsInZone(piles.draw, false);
@@ -453,15 +2012,25 @@
         // === STATE SERIALIZATION ===
 
         function serializeGameState() {
+            // Serialize knownMarks (convert Sets to arrays)
+            const serializedMarks = {};
+            for (const [viewerId, targets] of Object.entries(knownMarks)) {
+                serializedMarks[viewerId] = Array.from(targets);
+            }
+
             const state = {
-                version: 1,
+                version: 2,
                 timestamp: Date.now(),
                 zones: {},
                 turn: {
                     currentPlayerNum: turnState.currentPlayerNum,
                     actionsRemaining: turnState.actionsRemaining,
                     gameStarted: turnState.gameStarted
-                }
+                },
+                playerAlive: { ...playerAlive },
+                knownMarks: serializedMarks,
+                bountyState: { ...bountyState },
+                currentTurnNumber: currentTurnNumber
             };
 
             for (const zone of zones) {
@@ -480,9 +2049,6 @@
                 zone.cards = [];
             }
 
-            // Track cards that need flip animations
-            const cardsToFlip = [];
-
             // Repopulate zones from state
             for (const [zoneId, cardData] of Object.entries(state.zones)) {
                 const zone = zones.find(z => z.id === zoneId);
@@ -493,35 +2059,11 @@
                     if (!card) continue;
 
                     zone.cards.push(card);
-
-                    // Track cards that need to flip (don't animate yet)
-                    if (card.userData.faceUp !== faceUp) {
-                        cardsToFlip.push({ card, faceUp });
-                        card.userData.faceUp = faceUp;
-                    }
+                    card.userData.faceUp = faceUp;
                 }
 
-                // Layout cards in zone
+                // Layout cards - this handles visual rotation via shouldShowFaceUp()
                 layoutCardsInZone(zone, true);
-            }
-
-            // NOW add flip animations (after layoutCardsInZone is done)
-            for (const { card, faceUp } of cardsToFlip) {
-                const targetRotZ = faceUp ? 0 : Math.PI;
-                animatingCards = animatingCards.filter(a => a.card !== card);
-                animatingCards.push({
-                    card,
-                    startPos: card.position.clone(),
-                    endPos: card.position.clone(),
-                    startRotZ: card.rotation.z,
-                    endRotZ: targetRotZ,
-                    startRot: card.rotation.y,
-                    endRot: card.rotation.y,
-                    liftHeight: 2,
-                    baseY: card.position.y,
-                    startTime: performance.now(),
-                    duration: 300
-                });
             }
 
             // Apply turn state if present
@@ -530,6 +2072,31 @@
                 turnState.actionsRemaining = state.turn.actionsRemaining;
                 turnState.gameStarted = state.turn.gameStarted;
                 updateTurnUI();
+            }
+
+            // Apply player alive state
+            if (state.playerAlive) {
+                for (const [pNum, alive] of Object.entries(state.playerAlive)) {
+                    playerAlive[parseInt(pNum)] = alive;
+                }
+            }
+
+            // Apply mark knowledge (convert arrays back to Sets)
+            if (state.knownMarks) {
+                knownMarks = {};
+                for (const [viewerId, targets] of Object.entries(state.knownMarks)) {
+                    knownMarks[viewerId] = new Set(targets);
+                }
+            }
+
+            // Apply bounty state
+            if (state.bountyState) {
+                bountyState = { ...state.bountyState };
+            }
+
+            // Apply turn number
+            if (state.currentTurnNumber !== undefined) {
+                currentTurnNumber = state.currentTurnNumber;
             }
         }
 
@@ -666,6 +2233,13 @@
                     broadcastState(data.gameState);
                     break;
                 }
+
+                case MSG.REACTION_RESPONSE: {
+                    // Client sent a reaction response to host
+                    reactionState.responses[data.playerId] = data.response;
+                    checkAllReactionsReceived();
+                    break;
+                }
             }
         }
 
@@ -742,6 +2316,49 @@
                     updateLobbyPlayerList(data.players);
                     updatePlayerLabels();
                     break;
+
+                case MSG.REACTION_START: {
+                    // Host tells clients to start reaction window
+                    reactionState = {
+                        active: true,
+                        card: cards[data.cardIndex],
+                        cardIndex: data.cardIndex,
+                        playerId: data.playerId,
+                        targetId: data.targetId,
+                        timeRemaining: 5000,
+                        eligibleReactors: data.eligibleReactors,
+                        responses: {},
+                        startTime: Date.now(),
+                        effectType: data.effectType,
+                        isLethal: data.isLethal
+                    };
+                    showReactionOverlay();
+                    updateReactionTimer();
+                    break;
+                }
+
+                case MSG.REACTION_RESOLVE: {
+                    // Host tells clients that reaction resolved
+                    reactionState.active = false;
+                    hideReactionOverlay();
+                    // Effects already applied by host
+                    break;
+                }
+
+                case MSG.MARK_KNOWLEDGE_UPDATE: {
+                    // Host broadcasts updated mark knowledge
+                    knownMarks = {};
+                    for (const [viewerId, targets] of Object.entries(data.knownMarks)) {
+                        knownMarks[viewerId] = new Set(targets);
+                    }
+                    // Refresh mark visuals
+                    for (const zone of zones) {
+                        if (zone.type === 'mark') {
+                            layoutCardsInZone(zone);
+                        }
+                    }
+                    break;
+                }
             }
         }
 
@@ -1027,7 +2644,11 @@
             const count = zone.cards.length;
             zone.cards.forEach((card, i) => {
                 const pos = getCardPositionInZone(zone, i, count);
+                const visualFaceUp = shouldShowFaceUp(card, zone);
+                const targetRotZ = visualFaceUp ? 0 : Math.PI;
+
                 if (animate) {
+                    const needsFlip = card.rotation.z !== targetRotZ;
                     animatingCards = animatingCards.filter(a => a.card !== card);
                     animatingCards.push({
                         card,
@@ -1035,12 +2656,17 @@
                         endPos: new THREE.Vector3(pos.x, pos.y, pos.z),
                         startRot: card.rotation.y,
                         endRot: zone.rotation,
+                        startRotZ: card.rotation.z,
+                        endRotZ: targetRotZ,
+                        liftHeight: needsFlip ? 2 : 0,
+                        baseY: pos.y,
                         startTime: performance.now(),
                         duration: 300
                     });
                 } else {
                     card.position.set(pos.x, pos.y, pos.z);
                     card.rotation.y = zone.rotation;
+                    card.rotation.z = targetRotZ;
                 }
             });
         }
@@ -1100,6 +2726,14 @@
             createDeck();
             setupEvents();
             animate();
+
+            // Wire up reaction button handlers
+            document.getElementById('react-btn').addEventListener('click', () => {
+                sendReactionResponse('react');
+            });
+            document.getElementById('pass-btn').addEventListener('click', () => {
+                sendReactionResponse('pass');
+            });
         }
 
         function createZoneVisuals() {
@@ -1225,6 +2859,13 @@
         }
 
         function onMouseDown(event) {
+            // Check for targeting mode first
+            if (targetingState.active) {
+                if (handleTargetClick(event)) {
+                    return;
+                }
+            }
+
             updateMouse(event);
             raycaster.setFromCamera(mouse, camera);
             const intersects = raycaster.intersectObjects(cards);
@@ -1243,6 +2884,14 @@
                     }
                 }
                 return; // Don't allow dragging from draw pile
+            }
+
+            // Check for bounty use (clicking bounty zone card)
+            if (turnState.gameStarted && piles.bounty.cards.includes(clickedCard)) {
+                if (canPerformAction() && playerAlive[myPlayerNumber]) {
+                    initiateBountyUse(myPlayerNumber, clickedCard);
+                }
+                return; // Don't allow dragging from bounty zone
             }
 
             // If game started, only allow dragging own hand cards during your turn
@@ -1362,7 +3011,11 @@
                         executeBank(draggedCard, sourceZone, targetZone);
                     } else if (sourceZone === myHand && !isOwnZone(targetZone)) {
                         // Play action: hand -> outside own zones -> discard
-                        executePlay(draggedCard, sourceZone);
+                        if (!executePlay(draggedCard, sourceZone)) {
+                            // Can't afford - return card to hand
+                            draggedCard.position.copy(dragStartPos);
+                            layoutCardsInZone(sourceZone);
+                        }
                     } else {
                         // Invalid action - return card to original position
                         draggedCard.position.copy(dragStartPos);
@@ -1413,5 +3066,17 @@
         // Initialize game first, then show lobby over it
         init().then(() => showLobby());
     </script>
+    <div id="reaction-overlay" class="reaction-overlay hidden">
+        <div class="reaction-card-display" id="reaction-card-display"></div>
+        <div class="reaction-timer" id="reaction-timer">5.0</div>
+        <div class="reaction-prompt" id="reaction-prompt">
+            <p id="reaction-message">Waiting...</p>
+            <div class="reaction-buttons" id="reaction-buttons" style="display:none;">
+                <button class="react-btn" id="react-btn">Use Card</button>
+                <button class="pass-btn" id="pass-btn">Pass</button>
+            </div>
+            <p class="reaction-waiting" id="reaction-waiting" style="display:none;">Waiting for other players...</p>
+        </div>
+    </div>
 </body>
 </html>
