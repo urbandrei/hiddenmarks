@@ -134,8 +134,11 @@ export const reactionState = {
     dimPlane: null,
     secondTarget: null,
     // Reaction chain state
-    reactionPhase: 1,           // 1 = initial reaction, 2 = counter-reaction
+    reactionPhase: 1,           // Now a counter: 1, 2, 3, 4... for recursive reactions
     pendingReaction: null,      // { playerId, cardName } - the reaction being countered
+    reactionChain: [],          // Array of { playerId, cardName, cardIndex, isOriginal, originalState }
+    centerStackCards: [],       // 3D card meshes displayed in center stack
+    lastReactorId: null,        // Who played the last reaction (wins if chain ends)
     // 3D timer sprite
     timerSprite: null,
     timerCanvas: null,

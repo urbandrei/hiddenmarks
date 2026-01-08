@@ -249,7 +249,15 @@ export function broadcastCounterReactionStart(reactorId, reactionCardName, count
         counterReactors: counterReactors,
         cardIndex: state.reactionState.cardIndex,
         playerId: state.reactionState.playerId,
-        targetId: state.reactionState.targetId
+        targetId: state.reactionState.targetId,
+        // Add chain data for recursive reactions
+        reactionPhase: state.reactionState.reactionPhase,
+        reactionChain: state.reactionState.reactionChain.map(entry => ({
+            playerId: entry.playerId,
+            cardName: entry.cardName,
+            cardIndex: entry.cardIndex,
+            isOriginal: entry.isOriginal
+        }))
     };
 
     for (const conn of state.connections.values()) {
@@ -451,8 +459,8 @@ export function handleHostMessage(data) {
         }
 
         case MSG.COUNTER_REACTION_START: {
-            // Start counter-reaction phase on client
-            state.reactionState.reactionPhase = 2;
+            // Start counter-reaction phase on client (supports recursive chains)
+            state.reactionState.reactionPhase = data.reactionPhase || 2;
             state.reactionState.pendingReaction = {
                 playerId: data.reactorId,
                 cardName: data.reactionCardName
@@ -463,7 +471,15 @@ export function handleHostMessage(data) {
             state.reactionState.selectedCardName = null;
             state.reactionState.active = true;
 
-            game.showCounterReactionOverlay(data.reactionCardName);
+            // Rebuild chain from network data
+            if (data.reactionChain) {
+                state.reactionState.reactionChain = data.reactionChain.map(entry => ({
+                    ...entry,
+                    originalState: null  // Client will capture when displaying
+                }));
+            }
+
+            game.showChainReactionOverlay(data.reactionCardName);
             game.updateReactionTimer();
             break;
         }
