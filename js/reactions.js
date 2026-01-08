@@ -423,6 +423,8 @@ function unhighlightReactionCard(card) {
 }
 
 export function returnReactionCardsToHand() {
+    const hadDisplayedCards = state.reactionState.displayedReactionCards.length > 0;
+
     for (const displayState of state.reactionState.displayedReactionCards) {
         const card = displayState.card;
 
@@ -447,6 +449,11 @@ export function returnReactionCardsToHand() {
     state.reactionState.displayedReactionCards = [];
     state.reactionState.reactionCardMeshes = [];
     state.reactionState.selectedCardName = null;
+
+    // Re-layout the player's hand to ensure proper positioning after animations
+    if (hadDisplayedCards && state.myPlayerNumber && state.players[state.myPlayerNumber]) {
+        renderFunctions.layoutCardsInZone(state.players[state.myPlayerNumber].hand);
+    }
 }
 
 export function handleReactionCardClick(event, updateMouse) {
