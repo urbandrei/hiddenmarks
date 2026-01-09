@@ -78,9 +78,17 @@ export function processEndOfTurn(playerNum) {
     const player = state.players[playerNum];
     if (!player) return;
 
-    while (player.effect.cards.length > 0) {
-        const card = player.effect.cards.pop();
-        state.piles.discard.cards.push(card);
+    // Only discard non-bounty cards (bounties stay until owner's next turn)
+    const cardsToDiscard = player.effect.cards.filter(
+        c => !c.userData.name.includes('bounty')
+    );
+
+    for (const card of cardsToDiscard) {
+        const idx = player.effect.cards.indexOf(card);
+        if (idx !== -1) {
+            player.effect.cards.splice(idx, 1);
+            state.piles.discard.cards.push(card);
+        }
     }
     renderFunctions.layoutCardsInZone(player.effect);
     renderFunctions.layoutCardsInZone(state.piles.discard);

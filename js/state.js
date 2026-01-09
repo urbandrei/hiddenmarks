@@ -160,6 +160,47 @@ export function setCurrentTurnNumber(n) { currentTurnNumber = n; }
 export let bountyState = {};
 export function setBountyState(s) { bountyState = s; }
 
+// Bounty animation state
+export const bountyAnimationState = {
+    active: false,
+    step: 0,
+    draggerNum: null,
+    targetNum: null,
+    bountyCard: null,
+    bountyCardIndex: null,
+    bountySuit: null,
+    targetSuit: null,
+    isMatch: false,
+    startTime: null,
+    dimPlane: null,
+    textSprite: null,
+    textCanvas: null,
+    textCtx: null,
+    bountyOriginalState: null,
+    targetMarkOriginalState: null,
+    draggerMarkOriginalState: null,
+};
+
+export function resetBountyAnimationState() {
+    bountyAnimationState.active = false;
+    bountyAnimationState.step = 0;
+    bountyAnimationState.draggerNum = null;
+    bountyAnimationState.targetNum = null;
+    bountyAnimationState.bountyCard = null;
+    bountyAnimationState.bountyCardIndex = null;
+    bountyAnimationState.bountySuit = null;
+    bountyAnimationState.targetSuit = null;
+    bountyAnimationState.isMatch = false;
+    bountyAnimationState.startTime = null;
+    bountyAnimationState.dimPlane = null;
+    bountyAnimationState.textSprite = null;
+    bountyAnimationState.textCanvas = null;
+    bountyAnimationState.textCtx = null;
+    bountyAnimationState.bountyOriginalState = null;
+    bountyAnimationState.targetMarkOriginalState = null;
+    bountyAnimationState.draggerMarkOriginalState = null;
+}
+
 // Upheaval state
 export const upheavalState = {
     active: false,

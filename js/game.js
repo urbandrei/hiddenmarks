@@ -112,6 +112,7 @@ export const {
     executeGreed,
     executeInsomnia,
     addMarkKnowledge,
+    revealMarkToAll,
     getValidKillTargets,
     initiateKill,
     executeKill,
@@ -119,6 +120,7 @@ export const {
     showVictoryScreen,
     processBountyProgression,
     initiateBountyUse,
+    executeBountyOnMark,
     initiateUnmasked,
     initiateAlterEgo,
     initiateBodySwap,
@@ -126,7 +128,10 @@ export const {
     initiateTiedUp,
     initiateArson,
     initiateUpheaval,
-    initiateBounty
+    initiateBounty,
+    startBountyAnimationSequence,
+    executeBountyAnimationStep,
+    completeBountyAnimation
 } = cardEffects;
 
 // From turnActions

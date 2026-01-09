@@ -265,6 +265,44 @@ export function broadcastCounterReactionStart(reactorId, reactionCardName, count
     }
 }
 
+export function broadcastBountyAnimationStart() {
+    const anim = state.bountyAnimationState;
+    const message = {
+        type: MSG.BOUNTY_ANIMATION_START,
+        draggerNum: anim.draggerNum,
+        targetNum: anim.targetNum,
+        bountyCardIndex: anim.bountyCardIndex,
+        bountySuit: anim.bountySuit,
+        targetSuit: anim.targetSuit,
+        isMatch: anim.isMatch,
+    };
+
+    for (const conn of state.connections.values()) {
+        if (conn.open) conn.send(message);
+    }
+}
+
+export function broadcastBountyAnimationStep(stepNum) {
+    const message = {
+        type: MSG.BOUNTY_ANIMATION_STEP,
+        step: stepNum,
+    };
+
+    for (const conn of state.connections.values()) {
+        if (conn.open) conn.send(message);
+    }
+}
+
+export function broadcastBountyAnimationComplete() {
+    const message = {
+        type: MSG.BOUNTY_ANIMATION_COMPLETE,
+    };
+
+    for (const conn of state.connections.values()) {
+        if (conn.open) conn.send(message);
+    }
+}
+
 // === CONNECTION HANDLING ===
 
 export function handleIncomingConnection(conn) {
@@ -494,6 +532,34 @@ export function handleHostMessage(data) {
                     renderFunctions.layoutCardsInZone(zone);
                 }
             }
+            break;
+        }
+
+        case MSG.BOUNTY_ANIMATION_START: {
+            // Client receives animation start from host
+            const anim = state.bountyAnimationState;
+            anim.active = true;
+            anim.draggerNum = data.draggerNum;
+            anim.targetNum = data.targetNum;
+            anim.bountyCard = state.cards[data.bountyCardIndex];
+            anim.bountyCardIndex = data.bountyCardIndex;
+            anim.bountySuit = data.bountySuit;
+            anim.targetSuit = data.targetSuit;
+            anim.isMatch = data.isMatch;
+            anim.startTime = Date.now();
+            game.startBountyAnimationSequence();
+            break;
+        }
+
+        case MSG.BOUNTY_ANIMATION_STEP: {
+            // Client advances to specific step
+            game.executeBountyAnimationStep(data.step);
+            break;
+        }
+
+        case MSG.BOUNTY_ANIMATION_COMPLETE: {
+            // Client completes animation
+            game.completeBountyAnimation();
             break;
         }
     }

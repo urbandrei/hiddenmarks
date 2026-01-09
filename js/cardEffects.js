@@ -9,6 +9,9 @@ import { enterTargetingMode } from './targeting.js';
 let networkFunctions = {
     sendStateUpdate: () => console.log('sendStateUpdate not set'),
     broadcastMarkKnowledge: () => console.log('broadcastMarkKnowledge not set'),
+    broadcastBountyAnimationStart: () => console.log('broadcastBountyAnimationStart not set'),
+    broadcastBountyAnimationStep: () => console.log('broadcastBountyAnimationStep not set'),
+    broadcastBountyAnimationComplete: () => console.log('broadcastBountyAnimationComplete not set'),
 };
 
 let renderFunctions = {
@@ -217,6 +220,34 @@ export function addMarkKnowledge(viewerPlayerId, targetPlayerId) {
     if (!targetMark) return;
     const cardIndex = state.cards.indexOf(targetMark);
     state.knownMarks[viewerPlayerId].add(cardIndex);
+
+    if (state.isHost) {
+        networkFunctions.broadcastMarkKnowledge();
+    }
+
+    for (const zone of state.zones) {
+        if (zone.type === 'mark') {
+            renderFunctions.layoutCardsInZone(zone);
+        }
+    }
+}
+
+export function revealMarkToAll(targetPlayerId) {
+    const targetMark = state.players[targetPlayerId].mark.cards[0];
+    if (!targetMark) return;
+
+    const cardIndex = state.cards.indexOf(targetMark);
+
+    // Add knowledge for ALL connected, alive players
+    for (let pNum = 1; pNum <= 4; pNum++) {
+        if (!state.playerAlive[pNum]) continue;
+        if (!state.currentPlayerList.find(p => p.num === pNum && p.connected)) continue;
+
+        if (!state.knownMarks[pNum]) {
+            state.knownMarks[pNum] = new Set();
+        }
+        state.knownMarks[pNum].add(cardIndex);
+    }
 
     if (state.isHost) {
         networkFunctions.broadcastMarkKnowledge();
@@ -690,34 +721,497 @@ export function processBountyProgression(playerNum) {
 }
 
 export function initiateBountyUse(playerNum, bountyCard) {
+    // Legacy function - bounties now use drag-to-mark via executeBountyOnMark
     const validTargets = [];
     for (let pNum = 1; pNum <= 4; pNum++) {
+        if (pNum === playerNum) continue;
         if (!state.playerAlive[pNum]) continue;
         if (!state.currentPlayerList.find(p => p.num === pNum && p.connected)) continue;
         validTargets.push(pNum);
     }
 
     enterTargetingMode('mark', validTargets, (targetPlayerNum) => {
-        executeBountyKill(playerNum, targetPlayerNum, bountyCard);
+        executeBountyOnMark(playerNum, targetPlayerNum, bountyCard);
     });
 }
 
-function executeBountyKill(killerNum, targetNum, bountyCard) {
+export function executeBountyOnMark(draggerNum, targetNum, bountyCard) {
+    // 1. Consume 1 action
+    state.turnState.actionsRemaining--;
+
+    // 2. Get suits
     const bountySuit = bountyCard.userData.name.replace(' bounty', '');
-    const targetMarkZone = state.players[targetNum].mark;
-    const targetMark = targetMarkZone.cards[0];
+    const targetMark = state.players[targetNum].mark.cards[0];
     const targetSuit = targetMark?.userData.name.replace(' mark', '');
 
-    removeCardFromZones(bountyCard);
-    state.piles.discard.cards.push(bountyCard);
+    // 3. Store animation data
+    const cardIndex = state.cards.indexOf(bountyCard);
+    const anim = state.bountyAnimationState;
 
-    if (targetSuit === bountySuit) {
-        executeKill(killerNum, targetNum, bountyCard);
-    } else {
-        executeKill(targetNum, killerNum, bountyCard);
+    anim.active = true;
+    anim.step = 0;
+    anim.draggerNum = draggerNum;
+    anim.targetNum = targetNum;
+    anim.bountyCard = bountyCard;
+    anim.bountyCardIndex = cardIndex;
+    anim.bountySuit = bountySuit;
+    anim.targetSuit = targetSuit;
+    anim.isMatch = (targetSuit === bountySuit);
+    anim.startTime = Date.now();
+
+    // 4. Start animation sequence
+    startBountyAnimationSequence();
+
+    // 5. Host broadcasts to clients
+    if (state.isHost) {
+        networkFunctions.broadcastBountyAnimationStart();
+    }
+}
+
+// === BOUNTY ANIMATION SYSTEM ===
+
+const BOUNTY_ANIM_Y = 5;          // Height for displayed cards
+const BOUNTY_ANIM_Z = 0;          // Center Z position
+const BOUNTY_STEP_DURATION = 1500; // 1.5 seconds per step
+
+export function startBountyAnimationSequence() {
+    const anim = state.bountyAnimationState;
+
+    // Create dim overlay
+    if (anim.dimPlane) {
+        state.scene.remove(anim.dimPlane);
     }
 
+    const dimGeometry = new THREE.PlaneGeometry(100, 100);
+    const dimMaterial = new THREE.MeshBasicMaterial({
+        color: 0x000000,
+        transparent: true,
+        opacity: 0.7,
+        side: THREE.DoubleSide
+    });
+    anim.dimPlane = new THREE.Mesh(dimGeometry, dimMaterial);
+    anim.dimPlane.rotation.x = -Math.PI / 2;
+    anim.dimPlane.position.set(0, 3, 0);
+    state.scene.add(anim.dimPlane);
+
+    // Store original card positions
+    const bountyCard = anim.bountyCard;
+    anim.bountyOriginalState = {
+        position: bountyCard.position.clone(),
+        rotation: { y: bountyCard.rotation.y, z: bountyCard.rotation.z },
+        scale: bountyCard.scale.clone()
+    };
+
+    const targetMark = state.players[anim.targetNum].mark.cards[0];
+    if (targetMark) {
+        anim.targetMarkOriginalState = {
+            position: targetMark.position.clone(),
+            rotation: { y: targetMark.rotation.y, z: targetMark.rotation.z },
+            scale: targetMark.scale.clone()
+        };
+    }
+
+    const draggerMark = state.players[anim.draggerNum].mark.cards[0];
+    if (draggerMark) {
+        anim.draggerMarkOriginalState = {
+            position: draggerMark.position.clone(),
+            rotation: { y: draggerMark.rotation.y, z: draggerMark.rotation.z },
+            scale: draggerMark.scale.clone()
+        };
+    }
+
+    // Create text sprite for outcome display
+    createBountyTextSprite();
+
+    // Start step 1
+    executeBountyAnimationStep(1);
+}
+
+function createBountyTextSprite() {
+    const anim = state.bountyAnimationState;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d');
+
+    const texture = new THREE.CanvasTexture(canvas);
+    const material = new THREE.SpriteMaterial({ map: texture, transparent: true });
+    const sprite = new THREE.Sprite(material);
+    sprite.scale.set(12, 3, 1);
+    sprite.position.set(0, 8, -8);
+    sprite.visible = false;
+
+    anim.textSprite = sprite;
+    anim.textCanvas = canvas;
+    anim.textCtx = ctx;
+    state.scene.add(sprite);
+}
+
+function updateBountyTextSprite(text, color = '#ffffff') {
+    const anim = state.bountyAnimationState;
+    if (!anim.textCtx) return;
+
+    const ctx = anim.textCtx;
+    ctx.clearRect(0, 0, 512, 128);
+    ctx.fillStyle = color;
+    ctx.font = 'bold 48px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, 256, 64);
+
+    if (anim.textSprite?.material?.map) {
+        anim.textSprite.material.map.needsUpdate = true;
+        anim.textSprite.visible = true;
+    }
+}
+
+export function executeBountyAnimationStep(stepNum) {
+    const anim = state.bountyAnimationState;
+    anim.step = stepNum;
+    anim.startTime = Date.now();
+
+    switch (stepNum) {
+        case 1:
+            animateBountyStep1();
+            break;
+        case 2:
+            animateBountyStep2();
+            break;
+        case 3:
+            animateBountyStep3();
+            break;
+        case 4:
+            animateBountyStep4();
+            break;
+        case 5:
+            animateBountyStep5();
+            break;
+    }
+
+    // Schedule next step or completion
+    setTimeout(() => {
+        if (stepNum < 5) {
+            executeBountyAnimationStep(stepNum + 1);
+            if (state.isHost) {
+                networkFunctions.broadcastBountyAnimationStep(stepNum + 1);
+            }
+        } else {
+            completeBountyAnimation();
+        }
+    }, BOUNTY_STEP_DURATION);
+}
+
+function animateBountyStep1() {
+    // Step 1: Show bounty card at center, scaled up
+    const anim = state.bountyAnimationState;
+    const bountyCard = anim.bountyCard;
+
+    updateBountyTextSprite(`${anim.bountySuit.toUpperCase()} BOUNTY`, '#ffcc00');
+
+    state.setAnimatingCards(state.animatingCards.filter(a => a.card !== bountyCard));
+    state.animatingCards.push({
+        card: bountyCard,
+        startPos: bountyCard.position.clone(),
+        endPos: new THREE.Vector3(-2, BOUNTY_ANIM_Y, BOUNTY_ANIM_Z),
+        startRot: bountyCard.rotation.y,
+        endRot: 0,
+        startRotZ: bountyCard.rotation.z,
+        endRotZ: 0,
+        startScale: bountyCard.scale.x,
+        endScale: 2.5,
+        liftHeight: 2,
+        baseY: BOUNTY_ANIM_Y,
+        startTime: performance.now(),
+        duration: 500
+    });
+}
+
+function animateBountyStep2() {
+    // Step 2: Reveal target's mark with flip animation
+    const anim = state.bountyAnimationState;
+    const targetMark = state.players[anim.targetNum].mark.cards[0];
+    if (!targetMark) return;
+
+    updateBountyTextSprite('REVEALING MARK...', '#ffffff');
+
+    // Animate mark to center position with flip
+    state.setAnimatingCards(state.animatingCards.filter(a => a.card !== targetMark));
+    state.animatingCards.push({
+        card: targetMark,
+        startPos: targetMark.position.clone(),
+        endPos: new THREE.Vector3(2, BOUNTY_ANIM_Y, BOUNTY_ANIM_Z),
+        startRot: targetMark.rotation.y,
+        endRot: 0,
+        startRotZ: targetMark.rotation.z,
+        endRotZ: 0,  // Face up
+        startScale: targetMark.scale.x,
+        endScale: 2.5,
+        liftHeight: 3,
+        baseY: BOUNTY_ANIM_Y,
+        startTime: performance.now(),
+        duration: 800
+    });
+
+    // Update mark knowledge for all players
+    revealMarkToAll(anim.targetNum);
+}
+
+function animateBountyStep3() {
+    // Step 3: Show match/mismatch outcome
+    const anim = state.bountyAnimationState;
+
+    if (anim.isMatch) {
+        updateBountyTextSprite('MATCH! BOUNTY SUCCESS!', '#00ff00');
+    } else {
+        updateBountyTextSprite('NO MATCH! BOUNTY FAILED!', '#ff0000');
+    }
+}
+
+function animateBountyStep4() {
+    // Step 4: Show consequences with animations
+    const anim = state.bountyAnimationState;
+
+    if (anim.isMatch) {
+        // Success: show death effect on target
+        const targetName = state.currentPlayerList.find(p => p.num === anim.targetNum)?.name || `Player ${anim.targetNum}`;
+        updateBountyTextSprite(`${targetName} eliminated!`, '#ff4444');
+        animateDeathEffect(anim.targetNum);
+    } else {
+        // Failure: swap marks with animation
+        updateBountyTextSprite('Marks swapping...', '#ff8800');
+        animateMarkSwap(anim.draggerNum, anim.targetNum);
+    }
+}
+
+function animateBountyStep5() {
+    const anim = state.bountyAnimationState;
+
+    // Determine who dies based on outcome
+    const deadPlayer = anim.isMatch ? anim.targetNum : anim.draggerNum;
+
+    // Temporarily mark as dead to check victory
+    const wasAlive = state.playerAlive[deadPlayer];
+    state.playerAlive[deadPlayer] = false;
+
+    // Check if there's a winner
+    const alivePlayers = Object.entries(state.playerAlive)
+        .filter(([_, alive]) => alive)
+        .map(([num, _]) => parseInt(num));
+
+    const connectedAlivePlayers = alivePlayers.filter(pNum =>
+        state.currentPlayerList.find(p => p.num === pNum && p.connected)
+    );
+
+    // Restore alive state - will be properly set in completeBountyAnimation
+    state.playerAlive[deadPlayer] = wasAlive;
+
+    if (connectedAlivePlayers.length === 1) {
+        const winnerNum = connectedAlivePlayers[0];
+        const winnerName = state.currentPlayerList.find(p => p.num === winnerNum)?.name || `Player ${winnerNum}`;
+        updateBountyTextSprite(`${winnerName} WINS!`, '#ffff00');
+    } else if (!anim.isMatch) {
+        // Failed bounty - show dragger death message
+        const draggerName = state.currentPlayerList.find(p => p.num === anim.draggerNum)?.name || `Player ${anim.draggerNum}`;
+        updateBountyTextSprite(`${draggerName} eliminated!`, '#ff4444');
+    } else {
+        // Success case, already showed target eliminated in step 4
+        updateBountyTextSprite('', '#ffffff');
+    }
+}
+
+function animateDeathEffect(playerNum) {
+    // Visual death effect - animate player's cards toward discard
+    const player = state.players[playerNum];
+    if (!player) return;
+
+    const allCards = [...player.hand.cards, ...player.bank.cards];
+
+    allCards.forEach((card, index) => {
+        state.setAnimatingCards(state.animatingCards.filter(a => a.card !== card));
+        state.animatingCards.push({
+            card,
+            startPos: card.position.clone(),
+            endPos: new THREE.Vector3(
+                state.piles.discard.x,
+                index * 0.02,
+                state.piles.discard.z
+            ),
+            startRot: card.rotation.y,
+            endRot: 0,
+            startRotZ: card.rotation.z,
+            endRotZ: 0,
+            startScale: card.scale.x,
+            endScale: 1,
+            liftHeight: 3,
+            baseY: 0,
+            startTime: performance.now() + index * 100,
+            duration: 600
+        });
+    });
+}
+
+function animateMarkSwap(draggerNum, targetNum) {
+    // Animate marks visually swapping positions
+    const draggerMark = state.players[draggerNum].mark.cards[0];
+    const targetMark = state.players[targetNum].mark.cards[0];
+
+    if (!draggerMark || !targetMark) return;
+
+    const draggerMarkZone = state.players[draggerNum].mark;
+    const targetMarkZone = state.players[targetNum].mark;
+
+    // Animate dragger's mark to target's position
+    state.setAnimatingCards(state.animatingCards.filter(a => a.card !== draggerMark));
+    state.animatingCards.push({
+        card: draggerMark,
+        startPos: draggerMark.position.clone(),
+        endPos: new THREE.Vector3(targetMarkZone.x, 0, targetMarkZone.z),
+        startRot: draggerMark.rotation.y,
+        endRot: targetMarkZone.rotation,
+        startRotZ: draggerMark.rotation.z,
+        endRotZ: Math.PI,  // Flip face down
+        startScale: draggerMark.scale.x,
+        endScale: 1,
+        liftHeight: 5,
+        baseY: 0,
+        startTime: performance.now(),
+        duration: 1000
+    });
+
+    // Animate target's mark to dragger's position
+    state.setAnimatingCards(state.animatingCards.filter(a => a.card !== targetMark));
+    state.animatingCards.push({
+        card: targetMark,
+        startPos: targetMark.position.clone(),
+        endPos: new THREE.Vector3(draggerMarkZone.x, 0, draggerMarkZone.z),
+        startRot: targetMark.rotation.y,
+        endRot: draggerMarkZone.rotation,
+        startRotZ: targetMark.rotation.z,
+        endRotZ: 0,  // Stay face up
+        startScale: targetMark.scale.x,
+        endScale: 1,
+        liftHeight: 5,
+        baseY: 0,
+        startTime: performance.now(),
+        duration: 1000
+    });
+}
+
+export function completeBountyAnimation() {
+    const anim = state.bountyAnimationState;
+
+    // Clean up visual elements
+    if (anim.dimPlane) {
+        state.scene.remove(anim.dimPlane);
+        anim.dimPlane = null;
+    }
+    if (anim.textSprite) {
+        state.scene.remove(anim.textSprite);
+        anim.textSprite = null;
+    }
+
+    // Execute actual game state changes
+    executeBountyOutcome();
+
+    // Broadcast completion
+    if (state.isHost) {
+        networkFunctions.broadcastBountyAnimationComplete();
+    }
+
+    // Reset animation state
+    state.resetBountyAnimationState();
+}
+
+function executeBountyOutcome() {
+    const anim = state.bountyAnimationState;
+
+    // Move bounty card to discard
+    removeCardFromZones(anim.bountyCard);
+    state.piles.discard.cards.push(anim.bountyCard);
+
+    // Clear bounty tracking
+    delete state.bountyState[anim.bountyCardIndex];
+
+    if (anim.isMatch) {
+        executeBountySuccessState(anim.draggerNum, anim.targetNum);
+    } else {
+        executeBountyFailureState(anim.draggerNum, anim.targetNum);
+    }
+
+    // Update layouts
     renderFunctions.layoutCardsInZone(state.piles.bounty);
     renderFunctions.layoutCardsInZone(state.piles.discard);
     networkFunctions.sendStateUpdate();
+}
+
+function executeBountySuccessState(killerNum, victimNum) {
+    // Successful bounty: kill + rewards (+2 actions, top 2 cards)
+    const allVictimCards = [
+        ...state.players[victimNum].hand.cards.slice(),
+        ...state.players[victimNum].bank.cards.slice()
+    ];
+    allVictimCards.sort((a, b) => getCardValue(b) - getCardValue(a));
+
+    // Top 2 to killer's bank
+    const cardsToTake = allVictimCards.slice(0, 2);
+    for (const card of cardsToTake) {
+        removeCardFromZones(card);
+        state.players[killerNum].bank.cards.push(card);
+    }
+
+    // Rest to discard
+    for (const card of allVictimCards.slice(2)) {
+        removeCardFromZones(card);
+        state.piles.discard.cards.push(card);
+    }
+
+    state.playerAlive[victimNum] = false;
+    state.turnState.actionsRemaining += 2;
+
+    // Re-render affected zones
+    renderFunctions.layoutCardsInZone(state.players[victimNum].hand);
+    renderFunctions.layoutCardsInZone(state.players[victimNum].bank);
+    renderFunctions.layoutCardsInZone(state.players[victimNum].mark);
+    renderFunctions.layoutCardsInZone(state.players[killerNum].bank);
+
+    checkVictory();
+}
+
+function executeBountyFailureState(draggerNum, targetNum) {
+    // False bounty: dragger dies, marks swap, NO rewards for target
+
+    // 1. SWAP MARKS (data swap - animation already done)
+    const draggerMarkZone = state.players[draggerNum].mark;
+    const targetMarkZone = state.players[targetNum].mark;
+
+    const draggerMark = draggerMarkZone.cards[0];
+    const targetMark = targetMarkZone.cards[0];
+
+    if (draggerMark && targetMark) {
+        draggerMarkZone.cards[0] = targetMark;
+        targetMarkZone.cards[0] = draggerMark;
+    }
+
+    // 2. Discard dragger's cards
+    const allDraggerCards = [
+        ...state.players[draggerNum].hand.cards.slice(),
+        ...state.players[draggerNum].bank.cards.slice()
+    ];
+    for (const card of allDraggerCards) {
+        removeCardFromZones(card);
+        state.piles.discard.cards.push(card);
+    }
+
+    // 3. Mark dragger as dead
+    state.playerAlive[draggerNum] = false;
+
+    // Re-render affected zones
+    renderFunctions.layoutCardsInZone(draggerMarkZone);
+    renderFunctions.layoutCardsInZone(targetMarkZone);
+    renderFunctions.layoutCardsInZone(state.players[draggerNum].hand);
+    renderFunctions.layoutCardsInZone(state.players[draggerNum].bank);
+    renderFunctions.layoutCardsInZone(state.piles.discard);
+
+    checkVictory();
 }

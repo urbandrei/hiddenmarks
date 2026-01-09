@@ -68,4 +68,7 @@ export const MSG = {
     COUNTER_REACTION_START: 'counter_reaction_start',
     MARK_KNOWLEDGE_UPDATE: 'mark_knowledge_update',
     PLAYER_DEATH: 'player_death',
+    BOUNTY_ANIMATION_START: 'bounty_animation_start',
+    BOUNTY_ANIMATION_STEP: 'bounty_animation_step',
+    BOUNTY_ANIMATION_COMPLETE: 'bounty_animation_complete',
 };

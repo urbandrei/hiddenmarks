@@ -69,6 +69,9 @@ async function init() {
         broadcastReactionResolve: network.broadcastReactionResolve,
         broadcastMarkKnowledge: network.broadcastMarkKnowledge,
         broadcastCounterReactionStart: network.broadcastCounterReactionStart,
+        broadcastBountyAnimationStart: network.broadcastBountyAnimationStart,
+        broadcastBountyAnimationStep: network.broadcastBountyAnimationStep,
+        broadcastBountyAnimationComplete: network.broadcastBountyAnimationComplete,
     });
 
     game.setRenderFunctions({
@@ -84,6 +87,7 @@ async function init() {
         executeBank: game.executeBank,
         executePlay: game.executePlay,
         initiateBountyUse: game.initiateBountyUse,
+        executeBountyOnMark: game.executeBountyOnMark,
         canPerformAction: game.canPerformAction,
         isOwnZone: game.isOwnZone,
         sendStateUpdate: network.sendStateUpdate,

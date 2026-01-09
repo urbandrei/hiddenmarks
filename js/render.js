@@ -17,6 +17,7 @@ let gameFunctions = {
     executeBank: () => {},
     executePlay: () => {},
     initiateBountyUse: () => {},
+    executeBountyOnMark: () => {},
     canPerformAction: () => false,
     isOwnZone: () => false,
     sendStateUpdate: () => {}
@@ -282,6 +283,11 @@ export function updateMouse(event) {
 }
 
 function onMouseDown(event) {
+    // Block all input during bounty animation
+    if (state.bountyAnimationState?.active) {
+        return;
+    }
+
     // Check for targeting mode first
     if (state.targetingState.active) {
         if (gameFunctions.handleTargetClick(event, updateMouse)) {
@@ -315,10 +321,20 @@ function onMouseDown(event) {
         return;
     }
 
-    // Check for bounty use
+    // Check for bounty drag (bounties are dragged to marks, not clicked)
     if (state.turnState.gameStarted && state.piles.bounty.cards.includes(clickedCard)) {
         if (gameFunctions.canPerformAction() && state.playerAlive[state.myPlayerNumber]) {
-            gameFunctions.initiateBountyUse(state.myPlayerNumber, clickedCard);
+            // Start dragging bounty card
+            state.setDraggedCard(clickedCard);
+            state.dragStartPos.copy(clickedCard.position);
+
+            const maxY = Math.max(...state.cards.map(c => c.position.y));
+            clickedCard.position.y = maxY + CARD_DEPTH + 0.5;
+
+            const intersectPoint = new THREE.Vector3();
+            state.raycaster.ray.intersectPlane(state.tablePlane, intersectPoint);
+            state.dragOffset.copy(clickedCard.position).sub(intersectPoint);
+            state.dragOffset.y = clickedCard.position.y;
         }
         return;
     }
@@ -396,6 +412,22 @@ function onMouseUp() {
         if (isClick) {
             // Clicks do nothing during game - just return card
             layoutCardsInZone(sourceZone);
+            return;
+        }
+
+        // Bounty to mark = bounty use action
+        if (sourceZone === state.piles.bounty && targetZone?.type === 'mark') {
+            const targetPlayerNum = targetZone.player;
+
+            // Validate: not self, alive, connected
+            if (targetPlayerNum === state.myPlayerNumber ||
+                !state.playerAlive[targetPlayerNum] ||
+                !state.currentPlayerList.find(p => p.num === targetPlayerNum && p.connected)) {
+                layoutCardsInZone(sourceZone);
+                return;
+            }
+
+            gameFunctions.executeBountyOnMark(state.myPlayerNumber, targetPlayerNum, card);
             return;
         }
 
