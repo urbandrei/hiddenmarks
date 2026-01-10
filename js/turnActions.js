@@ -190,7 +190,7 @@ export function executePlay(card, sourceZone) {
     const markTargetingCards = ['unmasked', 'alter ego', 'body swap'];
     const playerTargetingCards = ['tied up', 'arson'];
     const killCards = ['backfire', 'counterfeit', 'bloodshot', 'heavy hand', 'gold digger', 'red handed'];
-    const bountyCards = ['hearts bounty', 'spades bounty', 'clubs bounty', 'diamonds bounty'];
+    const bountyCards = ['hearts bounty', 'spades bounty', 'clubs bounty', 'diamonds bounty', 'jokers bounty'];
     const specialCards = ['trade off', 'upheaval'];
 
     if (killCards.includes(cardName)) {

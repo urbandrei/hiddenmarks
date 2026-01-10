@@ -792,6 +792,7 @@ export function startBountyAnimationSequence() {
     anim.dimPlane = new THREE.Mesh(dimGeometry, dimMaterial);
     anim.dimPlane.rotation.x = -Math.PI / 2;
     anim.dimPlane.position.set(0, 3, 0);
+    anim.dimPlane.renderOrder = 0;
     state.scene.add(anim.dimPlane);
 
     // Store original card positions
@@ -809,6 +810,7 @@ export function startBountyAnimationSequence() {
             rotation: { y: targetMark.rotation.y, z: targetMark.rotation.z },
             scale: targetMark.scale.clone()
         };
+        targetMark.renderOrder = 1; // Render above dim plane
     }
 
     const draggerMark = state.players[anim.draggerNum].mark.cards[0];
@@ -849,6 +851,7 @@ function createBountyTextSprite() {
 }
 
 function updateBountyTextSprite(text, color = '#ffffff') {
+    return; // Skip text display, keep animation only
     const anim = state.bountyAnimationState;
     if (!anim.textCtx) return;
 
@@ -913,7 +916,7 @@ function animateBountyStep1() {
     state.animatingCards.push({
         card: bountyCard,
         startPos: bountyCard.position.clone(),
-        endPos: new THREE.Vector3(-2, BOUNTY_ANIM_Y, BOUNTY_ANIM_Z),
+        endPos: new THREE.Vector3(0, BOUNTY_ANIM_Y, BOUNTY_ANIM_Z),
         startRot: bountyCard.rotation.y,
         endRot: 0,
         startRotZ: bountyCard.rotation.z,
@@ -928,27 +931,27 @@ function animateBountyStep1() {
 }
 
 function animateBountyStep2() {
-    // Step 2: Reveal target's mark with flip animation
+    // Step 2: Reveal target's mark with flip animation (stays in place)
     const anim = state.bountyAnimationState;
     const targetMark = state.players[anim.targetNum].mark.cards[0];
     if (!targetMark) return;
 
     updateBountyTextSprite('REVEALING MARK...', '#ffffff');
 
-    // Animate mark to center position with flip
+    // Flip mark in place to reveal it (no position change)
     state.setAnimatingCards(state.animatingCards.filter(a => a.card !== targetMark));
     state.animatingCards.push({
         card: targetMark,
         startPos: targetMark.position.clone(),
-        endPos: new THREE.Vector3(2, BOUNTY_ANIM_Y, BOUNTY_ANIM_Z),
+        endPos: targetMark.position.clone(), // Stay in original position
         startRot: targetMark.rotation.y,
         endRot: 0,
         startRotZ: targetMark.rotation.z,
         endRotZ: 0,  // Face up
         startScale: targetMark.scale.x,
-        endScale: 2.5,
-        liftHeight: 3,
-        baseY: BOUNTY_ANIM_Y,
+        endScale: targetMark.scale.x, // Keep original scale
+        liftHeight: 1,
+        baseY: targetMark.position.y,
         startTime: performance.now(),
         duration: 800
     });
