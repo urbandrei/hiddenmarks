@@ -1,0 +1,28 @@
+{
+  "name": "hiddenmarks-server",
+  "version": "1.0.0",
+  "description": "Hidden Marks card game API server",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "test": "jest --verbose",
+    "test:watch": "jest --watch",
+    "test:unit": "jest tests/unit --verbose",
+    "test:integration": "jest tests/integration --verbose"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "pg": "^8.13.3",
+    "socket.io": "^4.8.1",
+    "uuid": "^11.1.0"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "nodemon": "^3.1.9",
+    "socket.io-client": "^4.8.1",
+    "supertest": "^7.0.0"
+  }
+}
